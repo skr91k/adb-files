@@ -24,6 +24,20 @@ It uses only the Python standard library, so there's nothing to `pip install`. I
 - **Junk is skipped.** `.DS_Store`, `._*`, `Thumbs.db` and similar are left out when sending a folder.
 - **Only items inside the launch folders can be sent.**
 
+**Syncing between Mac and Android**
+
+Sync compares each file with the same path on the other side and never shrinks a file:
+- **⬆️ Sync to** pushes from the side you clicked. **⬇️ Sync from** pulls into it.
+- **Copy** when the file is missing at the destination, or smaller there. Smaller files are overwritten.
+- **Skip** when it's the same size with the same MD5.
+- **Report and leave alone** when it's bigger at the destination, or the same size with different content.
+- **At the end** you get a report: files copied, files skipped (same hash), and the problem files with both sizes.
+
+**Copy / paste**
+- **📋 Copy** any file or folder, anywhere on either side.
+- The other pane then shows **📥 Paste** in its top bar. It pastes into the folder that pane has open.
+- Same rules as Send: folders merge, and you're asked before anything is overwritten.
+
 **Layout**
 - The path bar, toolbar and column headers stay fixed while the list scrolls.
 - Drag the divider to resize the panes. It remembers your split.

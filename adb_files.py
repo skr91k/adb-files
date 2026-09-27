@@ -357,6 +357,9 @@ class LocalBackend(Backend):
                     pass
         return total, children
 
+    def md5_many(self, paths):
+        return {p: self.md5(p) for p in paths}
+
     def rename(self, p, dest):
         os.rename(p, dest)
 
@@ -481,6 +484,17 @@ class AdbBackend(Backend):
                  f"find {d} -type f -exec stat -c %s {{}} +", check=False).split()
         children = int(out[0]) if out else 0
         return sum(int(x) for x in out[1:] if x.isdigit()), children
+
+    def md5_many(self, paths):
+        out = {}
+        paths = list(paths)
+        for i in range(0, len(paths), 50):
+            r = sh("md5sum " + " ".join(q(p) for p in paths[i:i + 50]) + " 2>/dev/null", check=False)
+            for line in r.splitlines():
+                h, _, p = line.partition("  ")
+                if len(h) == 32:
+                    out[posixpath.normpath(p)] = h
+        return out
 
     def rename(self, p, dest):
         sh(f"mv {q(p)} {q(dest)}")
@@ -750,15 +764,26 @@ def ep_send(be, b):
     Folders merge. Files that already exist are conflicts: a dry run
     ({dry: true}) reports them, then mode 'overwrite' replaces them and mode
     'rename' keeps both by sending the new one as 'name (01).ext'.
+
+    With {dest_dir} (copy/paste) the item goes into that folder on the other
+    side instead of the mirrored path, and needn't be inside the launch folder.
     """
     src = norm(b.get("path"))
     other = OTHER[be.side]
-    rel = _in_start(be, src)
-    dst = posixpath.join("/" + other.start, rel)
     join = lambda root, r: posixpath.normpath(posixpath.join(root, r))
+    if b.get("dest_dir") is not None:
+        if src == "/":
+            raise ApiError(400, "Cannot copy the root directory")
+        dest_dir = norm(b.get("dest_dir"))
+        other.need(dest_dir, "dir")
+        rel = posixpath.basename(src)
+        dst = join(dest_dir, rel)
+    else:
+        rel = _in_start(be, src)
+        dst = posixpath.join("/" + other.start, rel)
     st = be.stat(src)
     if st is None:
-        raise ApiError(404, "Source not found")
+        raise ApiError(404, f"/{src.lstrip('/')} no longer exists on {be.label}")
     item_dst = dst
     if st[0] == "dir":
         src_tree, dst_tree = be.walk(src), other.walk(dst)
@@ -819,22 +844,144 @@ def ep_send(be, b):
     return {"job": start_send_job(other, steps, size, len(files), result), **summary}
 
 
+def _copy_steps(op, pairs, size_of):
+    """[(src, dst)] -> adb steps: one push/pull per destination folder when the
+    name is unchanged, one call per renamed file."""
+    groups, steps = {}, []
+    for s, d in pairs:
+        if posixpath.basename(s) == posixpath.basename(d):
+            groups.setdefault(posixpath.dirname(d), []).append(s)
+        else:
+            steps.append(([op, s, d], [(d, size_of[s])]))
+    for d, srcs in groups.items():
+        for i in range(0, len(srcs), 100):
+            chunk = srcs[i:i + 100]
+            steps.insert(0, ([op, *chunk, d + "/" if op == "push" else d],
+                             [(posixpath.join(d, posixpath.basename(s)), size_of[s]) for s in chunk]))
+    return steps
+
+
+def ep_paste(be, b):
+    """Paste into folder `path` on this side an item copied on the other side."""
+    return ep_send(OTHER[be.side], {"path": b.get("src_path"), "dest_dir": b.get("path") or "",
+                                    "dry": b.get("dry"), "mode": b.get("mode")})
+
+
+def ep_sync(be, b):
+    """One-way sync of a file/folder to the same path on the other side.
+
+    Per file: missing there -> copy; bigger here -> overwrite; smaller here or
+    same size with a different MD5 -> reported, left alone; same size and MD5
+    -> skipped. Folders merge. Runs as a job; the report is the job result.
+
+    {down: true} syncs the other way: the other side's copy at the mirrored
+    path is the source and the clicked side is the destination.
+    """
+    rel = _in_start(be, norm(b.get("path")))
+    if b.get("down"):
+        be = OTHER[be.side]           # source = the other side
+    other = OTHER[be.side]            # destination
+    src = posixpath.join("/" + be.start, rel)
+    dst = posixpath.join("/" + other.start, rel)
+    st = be.stat(src)
+    if st is None:
+        raise ApiError(404, f"/{src.lstrip('/')} not found on {be.label}")
+    join = lambda root, r: posixpath.normpath(posixpath.join(root, r))
+    item_dst = dst
+
+    def prepare(job):
+        nonlocal src, dst, rel
+        job["phase"] = "Listing files…"
+        if st[0] == "dir":
+            src_tree = {r: v for r, v in be.walk(src).items() if not r or not _is_junk(r)}
+            dst_tree = other.walk(dst)
+        else:
+            name = posixpath.basename(src)
+            src, dst, rel = posixpath.dirname(src), posixpath.dirname(dst), posixpath.dirname(rel)
+            src_tree = {name: ("file", st[1])}
+            dst_tree = ({n: (k, s) for n, k, s, _ in other.list(dst)}
+                        if other.stat(dst) is not None else {})
+        shown = lambda r: join(rel, r)
+        problems, copy, same = [], [], []
+        # a folder here that is a file there: report it, skip everything under it
+        blocked = [r for r, (k, _) in src_tree.items()
+                   if k == "dir" and r in dst_tree and dst_tree[r][0] != "dir"]
+        for r in blocked:
+            problems.append({"path": shown(r), "reason": f"is a file on {other.label}, folder here",
+                             "src": "", "dst": _fmt(dst_tree[r][1])})
+        under = lambda r: any(r == x or r.startswith(x + "/") for x in blocked if x)
+        files = sorted(r for r, (k, _) in src_tree.items() if k == "file" and not under(r))
+        for r in files:
+            size, there = src_tree[r][1], dst_tree.get(r)
+            if there is None:
+                copy.append((r, "new"))
+            elif there[0] != "file":
+                problems.append({"path": shown(r), "reason": f"is a folder on {other.label}",
+                                 "src": _fmt(size), "dst": ""})
+            elif size > there[1]:
+                copy.append((r, "overwrite"))
+            elif size < there[1]:
+                problems.append({"path": shown(r), "reason": f"bigger on {other.label}",
+                                 "src": _fmt(size), "dst": _fmt(there[1])})
+            else:
+                same.append(r)
+        skipped = 0
+        for i in range(0, len(same), 50):
+            job["phase"] = f"Comparing MD5 {i}/{len(same)} same-size file(s)…"
+            chunk = same[i:i + 50]
+            hs = be.md5_many([join(src, r) for r in chunk])
+            hd = other.md5_many([join(dst, r) for r in chunk])
+            for r in chunk:
+                a, z = hs.get(join(src, r)), hd.get(join(dst, r))
+                if a and a == z:
+                    skipped += 1
+                else:
+                    problems.append({"path": shown(r),
+                                     "reason": "same size, different content" if a and z
+                                               else "could not hash",
+                                     "src": _fmt(src_tree[r][1]), "dst": _fmt(dst_tree[r][1])})
+        job["phase"] = "Creating folders…"
+        dirs = {join(dst, r) for r, (k, _) in src_tree.items() if k == "dir" and not under(r)}
+        dirs |= {posixpath.dirname(join(dst, r)) for r, _ in copy}
+        if dirs:
+            other.mkdirs(sorted(dirs))
+        size_of = {join(src, r): src_tree[r][1] for r, _ in copy}
+        steps = _copy_steps("push" if be is LOCAL else "pull",
+                            [(join(src, r), join(dst, r)) for r, _ in copy], size_of)
+        result = {"ok": True, "dest": item_dst.lstrip("/"), "copied": len(copy),
+                  "src_label": be.label, "dst_label": other.label,
+                  "new": sum(1 for _, k in copy if k == "new"),
+                  "overwritten": sum(1 for _, k in copy if k == "overwrite"),
+                  "skipped": skipped, "problems": problems, "fmt": _fmt(sum(size_of.values()))}
+        return steps, sum(size_of.values()), len(copy), result
+
+    item_src = src.lstrip("/")   # before the job thread rewrites src
+    return {"job": start_send_job(other, [], 0, 0, None, prepare=prepare),
+            "dest": item_dst.lstrip("/"), "src": item_src}
+
+
 # ── send jobs: run in a thread, progress = bytes present at the destination ──
 
 _jobs: dict = {}
 _jobs_lock = threading.Lock()
 
 
-def start_send_job(dest_be, steps, total, nfiles, result) -> str:
+def start_send_job(dest_be, steps, total, nfiles, result, prepare=None) -> str:
+    """Run adb copy steps in a thread. `prepare(job)`, if given, runs first in the
+    thread (listing / hashing) and returns (steps, total, nfiles, result)."""
     jid = os.urandom(6).hex()
     job = {"dest_be": dest_be, "steps": steps, "total": total, "files": nfiles,
            "result": result, "state": "running", "error": None, "step": 0,
            "done_bytes": 0, "done_files": 0, "t0": time.time(), "t1": None,
-           "baseline": {}, "poll": (0.0, 0, "")}
+           "baseline": {}, "poll": (0.0, 0, ""), "phase": ""}
 
     def run():
         try:
-            for i, (args, targets) in enumerate(steps):
+            if prepare:
+                job["steps"], job["total"], job["files"], job["result"] = prepare(job)
+                job["phase"] = ""
+                job["t0"] = time.time()   # speed counts copying only
+            for i, (args, targets) in enumerate(job["steps"]):
                 # files being overwritten already exist: only count them once they change
                 job["baseline"] = dest_be.sizes([tg for tg, _ in targets])
                 job["step"] = i
@@ -891,7 +1038,7 @@ def ep_send_status(be, b):
         done, cur = (job["total"] if job["state"] == "done" else job["done_bytes"]), ""
     elapsed = (job["t1"] or time.time()) - job["t0"]
     speed = done / elapsed if elapsed > 0.5 else 0
-    out = {"state": job["state"], "error": job["error"],
+    out = {"state": job["state"], "error": job["error"], "phase": job["phase"],
            "done": done, "total": job["total"], "fmt_done": _fmt(done), "fmt_total": _fmt(job["total"]),
            "pct": round(100 * done / job["total"], 1) if job["total"] else (100 if job["state"] == "done" else 0),
            "files_done": job["done_files"], "files": job["files"], "current": cur,
@@ -906,7 +1053,7 @@ JSON_ENDPOINTS = {
     "rename": ep_rename, "delete": ep_delete, "clean": ep_clean, "preview": ep_preview,
     "save": ep_save, "zip-list": ep_zip_list, "zip-preview": ep_zip_preview,
     "zip-repair": ep_zip_repair, "zip-all": ep_zip_all, "send": ep_send,
-    "send-status": ep_send_status,
+    "send-status": ep_send_status, "sync": ep_sync, "paste": ep_paste,
 }
 
 

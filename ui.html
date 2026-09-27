@@ -133,6 +133,10 @@ input:focus{border-color:var(--accent)}
         <button class="lock-btn" onclick="loadDir(_path)" title="Refresh current folder">🔄 Refresh</button>
         <button class="lock-btn" id="btn-zip-all" onclick="doZipAll()" style="display:none" title="Zip all non-zip files in current folder">📦 Zip All Loose Files</button>
         <button class="lock-btn" id="btn-more" onclick="openToolbarMenu(event)" style="display:none" title="More actions">⋯ More</button>
+        <span id="paste-wrap" style="display:none;gap:.25rem;align-items:center">
+          <button class="lock-btn" id="btn-paste" onclick="pasteHere()" style="color:var(--accent2);border-color:#1a3d30"></button>
+          <button class="lock-btn" onclick="clearClip()" title="Clear copied item">✕</button>
+        </span>
         <div id="pub-badge" style="display:none;font-size:.78rem;color:var(--accent2);border:1px solid #1a3d30;border-radius:6px;padding:.28rem .6rem;">🔒 Read-only</div>
       </div>
     </div>
@@ -628,9 +632,13 @@ function makeRow(item, idx) {
     e.stopPropagation();
     const items = [];
     if (item.is_dir) items.push({label: '📥 Download as ZIP', fn: () => downloadZip(itemPath, item.name, moreBtn)});
-    if (itemPath.startsWith(START_DIR + '/'))
+    if (itemPath.startsWith(START_DIR + '/')) {
       items.push({label: '📤 Send to ' + OTHER_LABEL, fn: () => sendTo(itemPath, item.name, moreBtn)});
+      items.push({label: '⬆️ Sync to ' + OTHER_LABEL, fn: () => syncTo(itemPath, item.name, moreBtn, false)});
+      items.push({label: '⬇️ Sync from ' + OTHER_LABEL, fn: () => syncTo(itemPath, item.name, moreBtn, true)});
+    }
     if (!item.is_dir) items.push({label: '#️⃣ Compute MD5', fn: () => computeMd5(itemPath, tdName, moreBtn)});
+    items.push({label: '📋 Copy', fn: () => copyItem(itemPath, item.name, item.is_dir)});
     items.push({label: '✏️ Rename', fn: enterRename});
     if (item.is_dir) items.push({label: '🧹 Clean folder', danger: true, fn: () => cleanFolder(itemPath, item.name, moreBtn)});
     openCtxMenu(moreBtn, items);
@@ -672,8 +680,74 @@ function makeRow(item, idx) {
 // Folders merge; existing files are never overwritten without asking.
 const _bc = ('BroadcastChannel' in window) ? new BroadcastChannel('adb-files') : null;
 if (_bc) _bc.onmessage = e => {
+  if (e.data && e.data.clip) renderPasteBtn();
   if (e.data && e.data.side === SIDE && _pw) loadDir(_path);
 };
+
+// ── copy / paste between the panes ───────────────────────────────────────────
+// The copied item lives in localStorage (shared by both panes); the pane on the
+// OTHER side shows a Paste button and pastes into the folder it has open.
+function getClip() {
+  try { return JSON.parse(localStorage.getItem('fx_clip') || 'null'); } catch(_) { return null; }
+}
+function renderPasteBtn() {
+  const clip = getClip();
+  const wrap = document.getElementById('paste-wrap');
+  if (clip && clip.side === OTHER) {
+    document.getElementById('btn-paste').textContent = `📥 Paste ${clip.is_dir ? '📁' : ''}"${clip.name}"`;
+    document.getElementById('btn-paste').title = `Paste ${OTHER_LABEL}: /${clip.path} into this folder`;
+    wrap.style.display = 'inline-flex';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+function copyItem(path, name, isDir) {
+  try { localStorage.setItem('fx_clip', JSON.stringify({side: SIDE, path, name, is_dir: isDir})); } catch(_) {}
+  if (_bc) _bc.postMessage({clip: true});
+  renderPasteBtn();
+  showStatus('ok', `📋 Copied "${name}" — open a folder in the ${OTHER_LABEL} pane and click Paste`);
+}
+function clearClip() {
+  try { localStorage.removeItem('fx_clip'); } catch(_) {}
+  if (_bc) _bc.postMessage({clip: true});
+  renderPasteBtn();
+}
+window.addEventListener('storage', e => { if (e.key === 'fx_clip') renderPasteBtn(); });
+renderPasteBtn();
+
+async function pasteHere() {
+  const clip = getClip();
+  if (!clip || clip.side !== OTHER) return;
+  const btn = document.getElementById('btn-paste');
+  const orig = btn.textContent, name = clip.name, dest = _path;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    showStatus('info', `Checking "${name}" in /${dest} …`);
+    const body = {password: _pw, path: dest, src_path: clip.path};
+    const plan = await (await apiPost('paste', {...body, dry: true})).json();
+    plan.here = true;
+    let mode = null;
+    if (plan.conflicts.length) {
+      mode = await askConflict(plan);
+      if (!mode) { showStatus('info', 'Paste cancelled'); return; }
+    }
+    const job = (await (await apiPost('paste', {...body, mode})).json()).job;
+    const d = await trackSend(job, name, plan, btn, '📥 Pasting');
+    let msg = `Pasted "${name}" → /${d.dest} — ${d.sent} file(s), ${d.fmt}`;
+    if (d.merge) msg += ', merged';
+    if (d.overwritten) msg += `, ${d.overwritten} overwritten`;
+    if (d.renamed.length) msg += `, ${d.renamed.length} kept as: ` + d.renamed.slice(0, 3).map(r => r.split('/').pop()).join(', ') + (d.renamed.length > 3 ? ' …' : '');
+    showStatus('ok', msg);
+    clearTimeout(showStatus._t);
+    showStatus._t = setTimeout(() => { document.getElementById('browser-status').style.display = 'none'; }, 10000);
+    if (_path === dest) loadDir(_path);
+  } catch(e) {
+    showStatus('err', 'Paste failed: ' + e.message);
+  } finally {
+    _sendShown = null;
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
 
 function askConflict(plan) {
   return new Promise(resolve => {
@@ -685,7 +759,7 @@ function askConflict(plan) {
     const n = plan.conflicts.length;
     const h = document.createElement('h1');
     h.style.cssText = 'font-size:1.05rem;margin-bottom:.5rem';
-    h.textContent = `${n} file${n !== 1 ? 's' : ''} already exist on ${OTHER_LABEL}`;
+    h.textContent = `${n} file${n !== 1 ? 's' : ''} already exist` + (plan.here ? ' here' : ` on ${OTHER_LABEL}`);
     const sub = document.createElement('p');
     sub.className = 'sub';
     sub.style.marginBottom = '.6rem';
@@ -716,14 +790,25 @@ function askConflict(plan) {
 
 // live progress of a running send; stays on screen until the job ends
 let _sendShown = null;   // job id whose progress owns the status box
-function renderSendProgress(name, plan, s) {
+function renderSendProgress(name, plan, s, verb = '📤 Sending') {
   const el = document.getElementById('browser-status');
   el.className = 'status-msg info';
   el.style.display = 'block';
   clearTimeout(showStatus._t);
   el.textContent = '';
   const top = document.createElement('div');
-  top.textContent = `📤 Sending "${name}" → ${OTHER_LABEL}: /${plan.dest}`;
+  top.textContent = plan.here
+    ? `${verb} ${OTHER_LABEL}: "${name}" → /${plan.dest}`
+    : verb.startsWith('⬇️')
+    ? `${verb} ${OTHER_LABEL}: "${name}" → /${plan.dest}`
+    : `${verb} "${name}" → ${OTHER_LABEL}: /${plan.dest}`;
+  if (s.phase) {   // still listing / hashing: no byte progress yet
+    const ph = document.createElement('div');
+    ph.style.cssText = 'font-size:.78rem;color:var(--muted);margin-top:.35rem';
+    ph.textContent = '⏳ ' + s.phase;
+    el.append(top, ph);
+    return;
+  }
   const bar = document.createElement('div');
   bar.style.cssText = 'height:6px;border-radius:3px;background:#0b0d14;margin:.45rem 0 .35rem;overflow:hidden';
   const fill = document.createElement('div');
@@ -737,15 +822,97 @@ function renderSendProgress(name, plan, s) {
   for (const p of parts) { const sp = document.createElement('span'); sp.textContent = p; info.appendChild(sp); }
   el.append(top, bar, info);
 }
-async function trackSend(job, name, plan, btn) {
+async function trackSend(job, name, plan, btn, verb) {
   _sendShown = job;
   while (true) {
     const s = await (await apiPost('send-status', {password: _pw, job})).json();
-    btn.textContent = s.state === 'running' ? Math.floor(s.pct) + '%' : '⏳';
-    if (_sendShown === job) renderSendProgress(name, plan, s);
+    btn.textContent = s.state === 'running' && !s.phase ? Math.floor(s.pct) + '%' : '⏳';
+    if (_sendShown === job) renderSendProgress(name, plan, s, verb);
     if (s.state === 'done') return s.result;
     if (s.state === 'error') throw new Error(s.error);
     await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
+// ── sync (one-way, never shrinks a file on the other side) ───────────────────
+function showSyncReport(name, r, down) {
+  const bg = document.createElement('div');
+  bg.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  const box = document.createElement('div');
+  box.className = 'card';
+  box.style.cssText = 'max-width:640px;width:100%;margin:0;max-height:90vh;display:flex;flex-direction:column';
+  const h = document.createElement('h1');
+  h.style.cssText = 'font-size:1.05rem;margin-bottom:.35rem';
+  h.textContent = (down ? `⬇️ Sync "${name}" ← ${OTHER_LABEL}` : `⬆️ Sync "${name}" → ${OTHER_LABEL}`)
+    + (r.problems.length ? ' — finished with problems' : ' — done');
+  const sub = document.createElement('p');
+  sub.className = 'sub';
+  sub.style.cssText = 'margin-bottom:.8rem;word-break:break-all';
+  sub.textContent = (down ? 'into ' : '') + '/' + r.dest;
+  const stats = document.createElement('div');
+  stats.style.cssText = 'display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem';
+  const chip = (txt, color) => {
+    const c = document.createElement('span');
+    c.style.cssText = `border:1px solid var(--border);border-radius:6px;padding:.3rem .6rem;font-size:.84rem;color:${color}`;
+    c.textContent = txt; stats.appendChild(c);
+  };
+  chip(`✅ ${r.copied} copied (${r.new} new, ${r.overwritten} overwritten, ${r.fmt})`, 'var(--ok)');
+  chip(`⏭ ${r.skipped} skipped (same hash)`, 'var(--muted)');
+  chip(`⚠️ ${r.problems.length} problem${r.problems.length !== 1 ? 's' : ''}`, r.problems.length ? 'var(--warn)' : 'var(--muted)');
+  box.append(h, sub, stats);
+  if (r.problems.length) {
+    const list = document.createElement('div');
+    list.style.cssText = 'overflow:auto;flex:1;border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin-bottom:.8rem';
+    const tbl = document.createElement('table');
+    tbl.className = 'ftable';
+    const hr = tbl.insertRow();
+    for (const t of ['File', 'Problem', r.src_label + ' (source)', r.dst_label]) {
+      const th = document.createElement('th'); th.textContent = t; th.style.position = 'static'; hr.appendChild(th);
+    }
+    for (const p of r.problems) {
+      const tr = tbl.insertRow();
+      for (const [v, css] of [[p.path, 'word-break:break-all'], [p.reason, 'color:var(--warn)'], [p.src, 'white-space:nowrap'], [p.dst, 'white-space:nowrap']]) {
+        const td = tr.insertCell(); td.textContent = v; td.style.cssText = css;
+      }
+    }
+    list.appendChild(tbl);
+    box.appendChild(list);
+  }
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;justify-content:flex-end;gap:.5rem';
+  if (r.problems.length) {
+    const cp = document.createElement('button');
+    cp.className = 'bti'; cp.textContent = '📋 Copy list';
+    cp.onclick = () => navigator.clipboard.writeText(r.problems.map(p => `${p.path}\t${p.reason}\t${p.src}\t${p.dst}`).join('\n')).then(() => showToast('Copied!'));
+    row.appendChild(cp);
+  }
+  const ok = document.createElement('button');
+  ok.className = 'bti ok'; ok.textContent = 'OK';
+  const close = () => { bg.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
+  ok.onclick = close;
+  row.appendChild(ok);
+  box.appendChild(row);
+  bg.appendChild(box);
+  bg.onclick = e => { if (e.target === bg) close(); };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(bg);
+}
+
+async function syncTo(itemPath, name, btn, down) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const start = await (await apiPost('sync', {password: _pw, path: itemPath, down: !!down})).json();
+    const r = await trackSend(start.job, name, start, btn, down ? '⬇️ Syncing from' : '⬆️ Syncing');
+    document.getElementById('browser-status').style.display = 'none';
+    showSyncReport(name, r, down);
+    if (r.copied) { if (down) loadDir(_path); else if (_bc) _bc.postMessage({side: OTHER}); }
+  } catch(e) {
+    showStatus('err', 'Sync failed: ' + e.message);
+  } finally {
+    _sendShown = null;
+    btn.disabled = false; btn.textContent = orig;
   }
 }
 

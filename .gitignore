@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime files (adbb writes these to /tmp, but never commit them if moved)
+*.log
+*.serial
+
+# Local config / secrets
+.env
+.env.*
+
+# OS / editor clutter
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp

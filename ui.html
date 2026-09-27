@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>__TITLE__</title>
+<script>if (window.top !== window) document.documentElement.classList.add('embedded');</script>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--accent:#6c63ff;--accent2:#00d4aa;--text:#e2e8f0;--muted:#64748b;--danger:#ff4757;--ok:#2ecc71;--warn:#f39c12}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;gap:1rem}
+html.embedded body{padding:.8rem .6rem}
+h1{font-size:1.4rem;font-weight:700;margin-bottom:.4rem}
+.sub{color:var(--muted);font-size:.82rem;font-family:'Cascadia Code','Fira Mono',monospace}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.5rem;width:100%;max-width:900px}
+input[type=password],input[type=text],input[type=number]{width:100%;padding:.65rem .8rem;border-radius:8px;border:1px solid var(--border);background:#111320;color:var(--text);font-size:.95rem;outline:none}
+input:focus{border-color:var(--accent)}
+.pw-wrap{position:relative;margin-bottom:.8rem}
+.pw-wrap input{padding-right:3.5rem}
+.pw-toggle{position:absolute;right:.7rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem}
+.btn{display:block;width:100%;padding:.65rem 1rem;border-radius:8px;border:none;cursor:pointer;font-size:.92rem;font-weight:600;margin-top:.5rem;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.15)}
+.status-msg{padding:.55rem .9rem;border-radius:8px;font-size:.84rem;margin-top:.8rem}
+.status-msg.ok{background:#0f2d1f;border:1px solid #1a5c3a;color:var(--ok)}
+.status-msg.err{background:#2d0f0f;border:1px solid #5c1a1a;color:var(--danger)}
+.status-msg.info{background:#1a1d35;border:1px solid #2a2d5a;color:var(--accent)}
+.log-box{margin-top:.6rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#0b0d14}
+.log-hdr{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.35rem .6rem;background:#141824;border-bottom:1px solid var(--border)}
+.log-hdr span{font-size:.78rem;color:var(--muted);cursor:pointer;user-select:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-log{margin:0;padding:.6rem .8rem;background:#0b0d14;color:var(--text);font-family:'Cascadia Code','Fira Mono',monospace;font-size:.76rem;line-height:1.45;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.browser-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+/* path + toolbar, status and column headers stay put; only the rows scroll */
+#browser .browser-hdr{position:sticky;top:0;z-index:20;background:var(--card);padding:.7rem 0;margin:-.7rem 0 .3rem}
+#browser-status{position:sticky;top:var(--hdr-h,0);z-index:19;box-shadow:0 0 0 .5rem var(--card)}
+.breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:.15rem;font-size:.88rem}
+.bc-crumb{color:var(--accent);cursor:pointer;padding:.15rem .35rem;border-radius:5px;white-space:nowrap}
+.bc-crumb:hover{background:#2a2d3a}
+.bc-sep{color:var(--muted);padding:0 .1rem}
+.bc-cur{color:var(--text);font-weight:600;padding:.15rem .35rem}
+.lock-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:.3rem .6rem;cursor:pointer;font-size:.8rem}
+.lock-btn:hover{background:#2a2d3a;color:var(--text)}
+.ftable{width:100%;border-collapse:collapse;font-size:.87rem}
+.ftable th{position:sticky;top:var(--stick-h,0);z-index:18;background:var(--card);font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.5rem .6rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.ftable td{padding:.45rem .6rem;border-bottom:1px solid #161923;vertical-align:middle}
+.ftable tr:last-child td{border-bottom:none}
+.ftable tr:hover td{background:#1c1f2e}
+.fn-cell{display:flex;align-items:center;gap:.45rem}
+.fn-icon{font-size:.95rem;flex-shrink:0}
+.fn-name{color:var(--text)}
+.fn-name.dir{color:var(--accent);cursor:pointer}
+.fn-name.dir:hover{text-decoration:underline}
+.ri-input{padding:.22rem .5rem;border-radius:5px;border:1px solid var(--accent);background:#111320;color:var(--text);font-size:.87rem;width:11rem;outline:none}
+.sz-cell{color:var(--muted);font-size:.8rem;white-space:nowrap}
+.calc-btn{background:none;border:1px solid var(--border);color:var(--accent2);border-radius:4px;padding:.1rem .45rem;font-size:.75rem;cursor:pointer;white-space:nowrap}
+.calc-btn:hover{background:#0f2520}
+.calc-btn:disabled{opacity:.45;cursor:not-allowed}
+.md5-hash{font-family:'Cascadia Code','Fira Mono',monospace;font-size:.74rem;word-break:break-all;cursor:pointer;color:var(--accent2);margin:.15rem 0 0 1.4rem}
+.md5-hash:hover{opacity:.8}
+.act-wrap{display:flex;align-items:center;gap:.3rem;flex-wrap:nowrap}
+.bti{background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:.18rem .45rem;font-size:.8rem;cursor:pointer;white-space:nowrap;line-height:1.45}
+.bti:hover{background:#2a2d3a;color:var(--text)}
+.bti.ok{color:var(--ok);border-color:#1a5c3a}
+.bti.ok:hover{background:#0f2d1f}
+.bti.danger{color:var(--danger)}
+.bti.danger:hover{background:#3a1a1a;border-color:#5c1a1a}
+.bti:disabled{opacity:.4;cursor:not-allowed}
+.ctx-menu{position:fixed;z-index:3000;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.3rem;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.ctx-item{display:flex;align-items:center;gap:.5rem;width:100%;background:none;border:none;color:var(--text);padding:.4rem .65rem;border-radius:5px;cursor:pointer;font-size:.83rem;text-align:left;white-space:nowrap}
+.ctx-item:hover{background:#2a2d3a}
+.ctx-item.danger{color:var(--danger)}
+.ctx-item.danger:hover{background:#3a1a1a}
+.del-row{display:flex;align-items:center;gap:.35rem;flex-wrap:nowrap}
+.del-label{font-size:.78rem;color:var(--warn);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.empty-dir{color:var(--muted);font-size:.88rem;padding:2rem;text-align:center}
+.load-msg{color:var(--muted);font-size:.85rem;padding:1.2rem;text-align:center}
+.pub-banner{background:#0a1f1a;border:1px solid #1a3d30;border-radius:8px;padding:.5rem .9rem;font-size:.82rem;color:var(--accent2);margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);color:var(--accent2);padding:.45rem 1.2rem;border-radius:8px;font-size:.83rem;pointer-events:none;opacity:0;transition:opacity .2s;z-index:9999}
+.toast.show{opacity:1}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:1060px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.1rem;border-bottom:1px solid var(--border);flex-shrink:0;gap:.5rem}
+.modal-ttl{font-weight:600;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.modal-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.05rem;padding:.2rem .45rem;border-radius:4px;flex-shrink:0;line-height:1}
+.modal-x:hover{background:#2a2d3a;color:var(--text)}
+.modal-bd{overflow:auto;flex:1;padding:1rem 1.1rem}
+.zt-ul{list-style:none;padding-left:0;margin:0}
+.zt-ul .zt-ul{padding-left:1.1rem}
+.zt-hdr{display:flex;align-items:center;gap:.35rem;cursor:pointer;padding:.18rem .35rem;border-radius:4px;font-size:.84rem;user-select:none}
+.zt-hdr:hover,.zt-file:hover{background:#1c1f2e}
+.zt-file{display:flex;align-items:center;justify-content:space-between;padding:.18rem .35rem;border-radius:4px;gap:.5rem}
+.zt-name{font-size:.84rem;color:var(--text);display:flex;align-items:center;gap:.35rem;min-width:0;flex:1}
+.zt-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zt-sz{color:var(--muted);font-size:.74rem;flex-shrink:0}
+.pv-warn{background:#2d2000;border:1px solid #5a3d00;border-radius:6px;padding:.45rem .8rem;font-size:.79rem;color:var(--warn);margin-bottom:.7rem}
+.pv-pre{font-family:'Cascadia Code','Fira Mono',monospace;font-size:.78rem;white-space:pre-wrap;word-break:break-all;color:var(--text);margin:0;line-height:1.55;tab-size:2}
+.pv-pager{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;background:#12151f;border:1px solid var(--border);border-radius:8px;padding:.45rem .7rem;margin-bottom:.7rem;position:sticky;top:0;z-index:5}
+.pv-pager .bti{padding:.22rem .6rem;font-size:.85rem}
+.pv-info{font-size:.78rem;color:var(--muted);margin:0 .3rem;white-space:nowrap}
+.modal-act{display:flex;gap:.4rem;align-items:center;flex-shrink:0}
+.modal-act .bti{padding:.22rem .6rem;font-size:.82rem}
+.pv-editbar{display:flex;align-items:center;gap:.5rem;background:#12151f;border:1px solid var(--border);border-radius:8px;padding:.45rem .7rem;margin-bottom:.7rem}
+.pv-edit{display:block;width:100%;box-sizing:border-box;min-height:58vh;background:#0d1017;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;font-family:'Cascadia Code','Fira Mono',monospace;font-size:.78rem;line-height:1.55;tab-size:2;resize:vertical;outline:none}
+.pv-edit:focus{border-color:var(--accent)}
+.modal-box.iv-box{max-width:96vw}
+.iv-wrap{display:flex;flex-direction:column;gap:.7rem}
+.iv-bar{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;background:#12151f;border:1px solid var(--border);border-radius:8px;padding:.45rem .7rem;position:sticky;top:0;z-index:5}
+.iv-bar .bti{padding:.22rem .6rem;font-size:.85rem}
+.iv-stage{display:flex;align-items:center;justify-content:center;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem;background:repeating-conic-gradient(#1a1d29 0% 25%,#14161f 0% 50%) 50%/18px 18px}
+.iv-stage.actual{align-items:flex-start;justify-content:flex-start;max-height:74vh}
+.iv-img{display:block;max-width:100%;max-height:74vh;object-fit:contain;cursor:pointer}
+.iv-stage.actual .iv-img{max-width:none;max-height:none}
+</style>
+</head>
+<body>
+
+<div id="auth-card" class="card" style="max-width:400px;display:none">
+  <h1>📂 File Browser</h1>
+  <p class="sub" style="margin-bottom:1.2rem">Local file browser</p>
+  <div class="pw-wrap">
+    <input type="password" id="auth-pw" placeholder="Password" autocomplete="current-password"/>
+    <button class="pw-toggle" onclick="toggleAuthPw()">Show</button>
+  </div>
+  <div id="auth-err" class="status-msg err" style="display:none"></div>
+  <button class="btn btn-primary" onclick="login()">🔓 Unlock</button>
+</div>
+
+<div id="browser" style="display:none;width:100%;max-width:900px">
+  <div class="card">
+    <div class="browser-hdr">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <button class="lock-btn" onclick="loadDir(_path)" title="Refresh current folder">🔄 Refresh</button>
+        <button class="lock-btn" id="btn-zip-all" onclick="doZipAll()" style="display:none" title="Zip all non-zip files in current folder">📦 Zip All Loose Files</button>
+        <button class="lock-btn" id="btn-more" onclick="openToolbarMenu(event)" style="display:none" title="More actions">⋯ More</button>
+        <div id="pub-badge" style="display:none;font-size:.78rem;color:var(--accent2);border:1px solid #1a3d30;border-radius:6px;padding:.28rem .6rem;">🔒 Read-only</div>
+      </div>
+    </div>
+
+
+
+    <input type="file" id="upload-input" multiple style="display:none"/>
+    <div id="upload-progress" style="display:none;margin-bottom:.6rem"></div>
+    <div id="browser-status" class="status-msg" style="display:none"></div>
+
+    <div id="file-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copied!</div>
+
+<div id="modal-ov" class="modal-ov" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <span id="modal-ttl" class="modal-ttl"></span>
+      <span id="modal-act" class="modal-act"></span>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-bd" class="modal-bd"></div>
+  </div>
+</div>
+
+<script>
+let _pw = '';
+let _path = '';
+const START_DIR = '__START__';   // default landing folder (whole disk is browsable)
+const SIDE = '__SIDE__', OTHER = '__OTHER__', ROOT_LABEL = '__ROOT_LABEL__', OTHER_LABEL = '__OTHER_LABEL__';
+
+// ── public mode ───────────────────────────────────────────────────────────────
+const _urlParams = new URLSearchParams(window.location.search);
+const _pubToken = _urlParams.get('TOKEN') || _urlParams.get('token') || '';
+const _pubMode = !!_pubToken;
+let _sessionId = '';
+let _pubBaseFolder = '';
+
+if (_pubMode) {
+  const sidKey = 'pub_sid_' + _pubToken;
+  _sessionId = localStorage.getItem(sidKey) || '';
+  if (!_sessionId) {
+    _sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(sidKey, _sessionId);
+  }
+}
+
+function buildBody(extra) {
+  const base = _pubMode
+    ? {token: _pubToken, session_id: _sessionId}
+    : {password: _pw};
+  return Object.assign(base, extra);
+}
+
+function ep(name) {
+  return _pubMode ? 'token/' + name : name;
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(ts) {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const date = sameYear
+    ? `${pad(d.getDate())} ${d.toLocaleString('default',{month:'short'})}`
+    : `${pad(d.getDate())} ${d.toLocaleString('default',{month:'short'})} ${d.getFullYear()}`;
+  return `${date}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fmtBytes(n) {
+  if (n >= 1<<30) return (n/(1<<30)).toFixed(2)+' GB';
+  if (n >= 1<<20) return (n/(1<<20)).toFixed(1)+' MB';
+  if (n >= 1<<10) return (n/(1<<10)).toFixed(0)+' KB';
+  return n+' B';
+}
+
+function joinPath(base, name) {
+  return base ? base + '/' + name : name;
+}
+
+let _sortCol = 'mtime';
+let _sortDir = -1;  // -1 = desc (newest first)
+let _currentItems = [];
+
+function sortItems(items) {
+  return [...items].sort((a, b) => {
+    if (_sortCol === 'name') {
+      if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+      return _sortDir * a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    }
+    if (_sortCol === 'size') {
+      if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+      return _sortDir * ((a.size ?? 0) - (b.size ?? 0));
+    }
+    if (_sortCol === 'mtime') {
+      return _sortDir * ((a.mtime ?? 0) - (b.mtime ?? 0));
+    }
+    return 0;
+  });
+}
+
+async function apiPost(endpoint, body) {
+  const r = await fetch('__API__' + endpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    let msg = 'Error';
+    try { msg = (await r.json()).detail || msg; } catch(_) {}
+    throw new Error(msg);
+  }
+  return r;
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('browser-status');
+  el.className = 'status-msg ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(showStatus._t);
+  if (type !== 'err') showStatus._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg || 'Copied!';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ── auth ──────────────────────────────────────────────────────────────────────
+function toggleAuthPw() {
+  const i = document.getElementById('auth-pw');
+  const b = event.currentTarget;
+  i.type = i.type === 'password' ? 'text' : 'password';
+  b.textContent = i.type === 'password' ? 'Show' : 'Hide';
+}
+
+document.getElementById('auth-pw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+
+async function tryLogin(pw) {
+  try {
+    await apiPost('auth', {password: pw});
+    _pw = pw;
+    localStorage.setItem('sysmon_pw', pw);
+    document.getElementById('auth-card').style.display = 'none';
+    document.getElementById('browser').style.display = '';
+    document.getElementById('btn-zip-all').style.display = '';
+    document.getElementById('btn-more').style.display = '';
+    loadDir(START_DIR);
+    return true;
+  } catch(_) { return false; }
+}
+
+async function login() {
+  const pw = document.getElementById('auth-pw').value.trim();
+  const errEl = document.getElementById('auth-err');
+  if (!pw) { errEl.style.display = 'block'; errEl.textContent = 'Enter password.'; return; }
+  errEl.style.display = 'none';
+  const ok = await tryLogin(pw);
+  if (!ok) { errEl.style.display = 'block'; errEl.textContent = 'Wrong password.'; }
+}
+
+function logout() {
+  _pw = ''; _path = '';
+  document.getElementById('browser').style.display = 'none';
+  document.getElementById('auth-card').style.display = '';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-err').style.display = 'none';
+}
+
+// ── breadcrumb ────────────────────────────────────────────────────────────────
+function renderBreadcrumb(path) {
+  const el = document.getElementById('breadcrumb');
+  el.innerHTML = '';
+  const parts = path ? path.split('/').filter(Boolean) : [];
+
+  function addCrumb(label, clickPath) {
+    const span = document.createElement('span');
+    span.className = clickPath !== null ? 'bc-crumb' : 'bc-cur';
+    span.textContent = label;
+    if (clickPath !== null) span.onclick = () => loadDir(clickPath);
+    el.appendChild(span);
+  }
+  function addSep() {
+    const sep = document.createElement('span');
+    sep.className = 'bc-sep'; sep.textContent = '/';
+    el.appendChild(sep);
+  }
+
+  if (_pubMode && _pubBaseFolder) {
+    const baseParts = _pubBaseFolder.split('/').filter(Boolean);
+    const relParts = parts.slice(baseParts.length);
+    const rootLabel = '📁 ' + baseParts[baseParts.length - 1];
+    if (!relParts.length) {
+      addCrumb(rootLabel, null);
+    } else {
+      addCrumb(rootLabel, '');
+      relParts.forEach((p, i) => {
+        addSep();
+        const built = baseParts.concat(relParts.slice(0, i + 1)).join('/');
+        addCrumb(p, i < relParts.length - 1 ? built : null);
+      });
+    }
+    return;
+  }
+
+  if (!parts.length) {
+    addCrumb(ROOT_LABEL, null);
+  } else {
+    addCrumb(ROOT_LABEL, '');
+    let built = '';
+    parts.forEach((p, i) => {
+      addSep();
+      built = built ? built + '/' + p : p;
+      addCrumb(p, i < parts.length - 1 ? built : null);
+    });
+  }
+}
+
+// ── list directory ────────────────────────────────────────────────────────────
+async function loadDir(path) {
+  const listEl = document.getElementById('file-list');
+  listEl.innerHTML = '<div class="load-msg">Loading…</div>';
+  if (!_sendShown) document.getElementById('browser-status').style.display = 'none';
+  try {
+    const r = await apiPost(ep('list'), buildBody({path}));
+    const d = await r.json();
+    _path = d.path;
+    if (_pubMode && d.base_folder) _pubBaseFolder = d.base_folder;
+    renderBreadcrumb(d.path);
+    renderList(d.items);
+    if (_sortCol === 'size') sizeAllFolders();
+  } catch(e) {
+    listEl.innerHTML = '<div class="empty-dir">' + e.message + '</div>';
+  }
+}
+
+function renderList(items) {
+  if (items !== _currentItems) _currentItems = items;
+  const listEl = document.getElementById('file-list');
+  if (!_currentItems.length) {
+    listEl.innerHTML = '<div class="empty-dir">Empty folder</div>';
+    return;
+  }
+  const sorted = sortItems(_currentItems);
+  const table = document.createElement('table');
+  table.className = 'ftable';
+
+  function mkTh(label, col, extraStyle) {
+    const th = document.createElement('th');
+    th.style.cssText = 'cursor:pointer;user-select:none;white-space:nowrap' + (extraStyle || '');
+    const active = _sortCol === col;
+    const arrow = active ? (_sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+    th.innerHTML = label + '<span style="opacity:' + (active ? '1' : '.3') + ';font-size:.7em;margin-left:.25em">' + (active ? (_sortDir===1?'▲':'▼') : '⇅') + '</span>';
+    if (active) th.style.color = 'var(--accent2)';
+    th.onclick = () => {
+      if (_sortCol === col) _sortDir *= -1;
+      else { _sortCol = col; _sortDir = 1; }
+      renderList(_currentItems);
+      if (col === 'size') sizeAllFolders();
+    };
+    return th;
+  }
+
+  const thead = document.createElement('thead');
+  const hrow = document.createElement('tr');
+  hrow.appendChild(mkTh('Name', 'name'));
+  hrow.appendChild(mkTh('Size', 'size'));
+  hrow.appendChild(mkTh('Modified', 'mtime'));
+  const thAct = document.createElement('th');
+  thAct.textContent = _pubMode ? 'Download' : 'Actions';
+  hrow.appendChild(thAct);
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  sorted.forEach((item, idx) => tbody.appendChild(makeRow(item, idx)));
+  table.appendChild(tbody);
+  listEl.innerHTML = '';
+  listEl.appendChild(table);
+}
+
+// ── row builder ───────────────────────────────────────────────────────────────
+function makeRow(item, idx) {
+  const itemPath = joinPath(_path, item.name);
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + idx;
+
+  // Name cell
+  const tdName = document.createElement('td');
+  const normalName = document.createElement('div');
+  normalName.className = 'fn-cell';
+  const icon = document.createElement('span');
+  icon.className = 'fn-icon';
+  icon.textContent = fileIcon2(item.name, item.is_dir);
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'fn-name' + (item.is_dir ? ' dir' : '');
+  nameSpan.textContent = item.name;
+  if (item.is_dir) nameSpan.onclick = () => loadDir(itemPath);
+  else if (fileType(item.name) === 'image') {
+    nameSpan.style.cursor = 'pointer';
+    nameSpan.title = 'Click to view';
+    nameSpan.onclick = () => openImageViewer(item.name);
+  }
+  normalName.appendChild(icon);
+  normalName.appendChild(nameSpan);
+  tdName.appendChild(normalName);
+
+  // Rename mode (admin only)
+  let renameBox, rInput;
+  if (!_pubMode) {
+    renameBox = document.createElement('div');
+    renameBox.className = 'fn-cell';
+    renameBox.style.display = 'none';
+    const rIcon = document.createElement('span');
+    rIcon.className = 'fn-icon';
+    rIcon.textContent = item.is_dir ? '📁' : '📄';
+    rInput = document.createElement('input');
+    rInput.type = 'text';
+    rInput.className = 'ri-input';
+    rInput.value = item.name;
+    renameBox.appendChild(rIcon);
+    renameBox.appendChild(rInput);
+    tdName.appendChild(renameBox);
+  }
+
+  // Size cell
+  const tdSize = document.createElement('td');
+  tdSize.className = 'sz-cell';
+  if (item.is_dir && item.size != null) {
+    tdSize.textContent = folderSizeText(item);
+  } else if (item.is_dir) {
+    const calcBtn = document.createElement('button');
+    calcBtn.className = 'calc-btn';
+    calcBtn.textContent = '📊 Calc';
+    calcBtn.onclick = () => calcFolderSize(item, itemPath, tdSize, calcBtn);
+    tdSize.appendChild(calcBtn);
+  } else {
+    tdSize.textContent = item.size != null ? fmtBytes(item.size) : '—';
+  }
+
+  // Modified cell
+  const tdMtime = document.createElement('td');
+  tdMtime.className = 'sz-cell';
+  tdMtime.textContent = item.mtime ? fmtDate(item.mtime) : '—';
+  tdMtime.title = item.mtime ? new Date(item.mtime * 1000).toLocaleString() : '';
+
+  // Actions cell
+  const tdAct = document.createElement('td');
+  const normalAct = document.createElement('div');
+  normalAct.className = 'act-wrap';
+
+  if (_pubMode) {
+    // public: view/preview for zips and text files, download for files
+    if (!item.is_dir) {
+      const ft = fileType(item.name);
+      if (ft === 'zip') {
+        const vwBtn = document.createElement('button');
+        vwBtn.className = 'bti'; vwBtn.title = 'View ZIP contents'; vwBtn.textContent = '📦 View';
+        vwBtn.onclick = () => openZipViewer(itemPath, item.name, vwBtn);
+        normalAct.appendChild(vwBtn);
+      } else if (ft === 'image') {
+        const ivBtn = document.createElement('button');
+        ivBtn.className = 'bti'; ivBtn.title = 'View image'; ivBtn.textContent = '🖼 View';
+        ivBtn.onclick = () => openImageViewer(item.name);
+        normalAct.appendChild(ivBtn);
+      } else if (['json','csv','text'].includes(ft)) {
+        const pvBtn = document.createElement('button');
+        pvBtn.className = 'bti'; pvBtn.title = 'Preview'; pvBtn.textContent = '👁 Preview';
+        pvBtn.onclick = () => openFilePreview(itemPath, item.name, pvBtn);
+        normalAct.appendChild(pvBtn);
+      }
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'bti';
+      dlBtn.title = 'Download';
+      dlBtn.textContent = '📥 Download';
+      dlBtn.onclick = () => downloadFile(itemPath, item.name, dlBtn);
+      normalAct.appendChild(dlBtn);
+    }
+    tdAct.appendChild(normalAct);
+    tr.appendChild(tdName);
+    tr.appendChild(tdSize);
+    tr.appendChild(tdMtime);
+    tr.appendChild(tdAct);
+    return tr;
+  }
+
+  // admin: full controls
+  if (!item.is_dir) {
+    const ft = fileType(item.name);
+    if (ft === 'zip') {
+      const vwBtn = document.createElement('button');
+      vwBtn.className = 'bti'; vwBtn.title = 'View ZIP contents'; vwBtn.textContent = '📦';
+      vwBtn.onclick = () => openZipViewer(itemPath, item.name, vwBtn);
+      normalAct.appendChild(vwBtn);
+    } else if (ft === 'image') {
+      const ivBtn = document.createElement('button');
+      ivBtn.className = 'bti'; ivBtn.title = 'View image'; ivBtn.textContent = '🖼';
+      ivBtn.onclick = () => openImageViewer(item.name);
+      normalAct.appendChild(ivBtn);
+    } else if (['json','csv','text'].includes(ft)) {
+      const pvBtn = document.createElement('button');
+      pvBtn.className = 'bti'; pvBtn.title = 'Preview file'; pvBtn.textContent = '👁';
+      pvBtn.onclick = () => openFilePreview(itemPath, item.name, pvBtn);
+      normalAct.appendChild(pvBtn);
+    }
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'bti';
+    dlBtn.title = 'Download';
+    dlBtn.textContent = '📥';
+    dlBtn.onclick = () => downloadFile(itemPath, item.name, dlBtn);
+    normalAct.appendChild(dlBtn);
+  }
+
+  const moreBtn = document.createElement('button');
+  moreBtn.className = 'bti'; moreBtn.title = 'More actions'; moreBtn.textContent = '⋯';
+  const delBtn = document.createElement('button');
+  delBtn.className = 'bti danger'; delBtn.title = 'Delete'; delBtn.textContent = '🗑';
+  normalAct.appendChild(moreBtn);
+  normalAct.appendChild(delBtn);
+
+  const renameAct = document.createElement('div');
+  renameAct.className = 'act-wrap'; renameAct.style.display = 'none';
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'bti ok'; saveBtn.textContent = '✓ Save';
+  const cancelRnBtn = document.createElement('button');
+  cancelRnBtn.className = 'bti'; cancelRnBtn.textContent = '✕';
+  renameAct.appendChild(saveBtn); renameAct.appendChild(cancelRnBtn);
+
+  const delConfirm = document.createElement('div');
+  delConfirm.className = 'del-row'; delConfirm.style.display = 'none';
+  const delLabel = document.createElement('span');
+  delLabel.className = 'del-label'; delLabel.textContent = '"' + item.name + '"?';
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'bti danger'; yesBtn.textContent = 'Delete';
+  const noBtn = document.createElement('button');
+  noBtn.className = 'bti'; noBtn.textContent = 'Cancel';
+  delConfirm.appendChild(delLabel); delConfirm.appendChild(yesBtn); delConfirm.appendChild(noBtn);
+
+  tdAct.appendChild(normalAct); tdAct.appendChild(renameAct); tdAct.appendChild(delConfirm);
+
+  // rename wiring
+  function enterRename() {
+    normalName.style.display = 'none'; renameBox.style.display = '';
+    normalAct.style.display = 'none'; renameAct.style.display = '';
+    rInput.value = item.name; rInput.focus(); rInput.select();
+  }
+  function exitRename() {
+    renameBox.style.display = 'none'; normalName.style.display = '';
+    renameAct.style.display = 'none'; normalAct.style.display = '';
+    saveBtn.disabled = false; saveBtn.textContent = '✓ Save';
+  }
+  async function doRename() {
+    const newName = rInput.value.trim();
+    if (!newName || newName === item.name) { exitRename(); return; }
+    saveBtn.disabled = true; saveBtn.textContent = '⏳';
+    try {
+      await apiPost('rename', {password: _pw, path: itemPath, new_name: newName});
+      loadDir(_path);
+    } catch(e) { showStatus('err', 'Rename failed: ' + e.message); exitRename(); }
+  }
+  saveBtn.onclick = doRename; cancelRnBtn.onclick = exitRename;
+  rInput.onkeydown = e => { if(e.key==='Enter') doRename(); if(e.key==='Escape') exitRename(); };
+
+  // delete wiring
+  function enterDelete() { normalAct.style.display = 'none'; delConfirm.style.display = ''; }
+  function exitDelete() {
+    delConfirm.style.display = 'none'; normalAct.style.display = '';
+    yesBtn.disabled = false; yesBtn.textContent = 'Delete';
+  }
+  async function doDelete() {
+    yesBtn.disabled = true; yesBtn.textContent = '⏳';
+    try {
+      await apiPost('delete', {password: _pw, path: itemPath});
+      tr.style.transition = 'opacity .25s'; tr.style.opacity = '0';
+      setTimeout(() => tr.remove(), 260);
+      showStatus('ok', 'Deleted: ' + item.name);
+    } catch(e) { showStatus('err', 'Delete failed: ' + e.message); exitDelete(); }
+  }
+  delBtn.onclick = enterDelete; noBtn.onclick = exitDelete; yesBtn.onclick = doDelete;
+
+  // more (⋯) menu
+  moreBtn.onclick = e => {
+    e.stopPropagation();
+    const items = [];
+    if (item.is_dir) items.push({label: '📥 Download as ZIP', fn: () => downloadZip(itemPath, item.name, moreBtn)});
+    if (itemPath.startsWith(START_DIR + '/'))
+      items.push({label: '📤 Send to ' + OTHER_LABEL, fn: () => sendTo(itemPath, item.name, moreBtn)});
+    if (!item.is_dir) items.push({label: '#️⃣ Compute MD5', fn: () => computeMd5(itemPath, tdName, moreBtn)});
+    items.push({label: '✏️ Rename', fn: enterRename});
+    if (item.is_dir) items.push({label: '🧹 Clean folder', danger: true, fn: () => cleanFolder(itemPath, item.name, moreBtn)});
+    openCtxMenu(moreBtn, items);
+  };
+  // right-click a row -> same menu
+  tr.oncontextmenu = e => {
+    if (renameAct.style.display !== 'none') return;
+    e.preventDefault();
+    closeCtxMenu();
+    moreBtn.onclick(e);
+  };
+
+  tr.appendChild(tdName); tr.appendChild(tdSize); tr.appendChild(tdMtime);
+  tr.appendChild(tdAct);
+  return tr;
+}
+
+// ── sticky header offsets ─────────────────────────────────────────────────────
+// the status box sits under the header bar, the table's column row under both
+(function () {
+  const root = document.documentElement;
+  const hdr = document.querySelector('#browser .browser-hdr');
+  const st = document.getElementById('browser-status');
+  if (!hdr || !st || !('ResizeObserver' in window)) return;
+  const update = () => {
+    const hh = hdr.offsetHeight;
+    const sh = st.style.display === 'none' ? 0 : st.offsetHeight + 8;
+    root.style.setProperty('--hdr-h', hh + 'px');
+    root.style.setProperty('--stick-h', (hh + sh) + 'px');
+  };
+  const ro = new ResizeObserver(update);
+  ro.observe(hdr); ro.observe(st);
+  new MutationObserver(update).observe(st, {attributes: true, attributeFilter: ['style']});
+  update();
+})();
+
+// ── send to the other side (Mac ⇄ Android) ────────────────────────────────────
+// Goes to the same path under the other side's launch folder (DATA/x/y -> DATA/x/y).
+// Folders merge; existing files are never overwritten without asking.
+const _bc = ('BroadcastChannel' in window) ? new BroadcastChannel('adb-files') : null;
+if (_bc) _bc.onmessage = e => {
+  if (e.data && e.data.side === SIDE && _pw) loadDir(_path);
+};
+
+function askConflict(plan) {
+  return new Promise(resolve => {
+    const bg = document.createElement('div');
+    bg.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    const box = document.createElement('div');
+    box.className = 'card';
+    box.style.cssText = 'max-width:560px;width:100%;margin:0';
+    const n = plan.conflicts.length;
+    const h = document.createElement('h1');
+    h.style.cssText = 'font-size:1.05rem;margin-bottom:.5rem';
+    h.textContent = `${n} file${n !== 1 ? 's' : ''} already exist on ${OTHER_LABEL}`;
+    const sub = document.createElement('p');
+    sub.className = 'sub';
+    sub.style.marginBottom = '.6rem';
+    sub.textContent = `/${plan.dest} — ${plan.files} file(s), ${plan.fmt}` + (plan.merge ? ' (folders will be merged)' : '');
+    const list = document.createElement('div');
+    list.style.cssText = 'max-height:220px;overflow:auto;font-size:.78rem;font-family:monospace;border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;margin-bottom:.8rem;color:var(--muted)';
+    list.textContent = plan.conflicts.slice(0, 200).join('\n') + (n > 200 ? `\n… and ${n - 200} more` : '');
+    list.style.whiteSpace = 'pre';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end';
+    const done = v => { bg.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = e => { if (e.key === 'Escape') done(null); };
+    for (const [label, val, cls] of [['Cancel', null, 'bti'],
+                                      ['Keep both — name (01)', 'rename', 'bti ok'],
+                                      ['Overwrite', 'overwrite', 'bti danger']]) {
+      const b = document.createElement('button');
+      b.className = cls; b.textContent = label;
+      b.onclick = () => done(val);
+      row.appendChild(b);
+    }
+    box.append(h, sub, list, row);
+    bg.appendChild(box);
+    bg.onclick = e => { if (e.target === bg) done(null); };
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(bg);
+  });
+}
+
+// live progress of a running send; stays on screen until the job ends
+let _sendShown = null;   // job id whose progress owns the status box
+function renderSendProgress(name, plan, s) {
+  const el = document.getElementById('browser-status');
+  el.className = 'status-msg info';
+  el.style.display = 'block';
+  clearTimeout(showStatus._t);
+  el.textContent = '';
+  const top = document.createElement('div');
+  top.textContent = `📤 Sending "${name}" → ${OTHER_LABEL}: /${plan.dest}`;
+  const bar = document.createElement('div');
+  bar.style.cssText = 'height:6px;border-radius:3px;background:#0b0d14;margin:.45rem 0 .35rem;overflow:hidden';
+  const fill = document.createElement('div');
+  fill.style.cssText = `height:100%;width:${s.pct}%;background:var(--accent2);transition:width .6s`;
+  bar.appendChild(fill);
+  const info = document.createElement('div');
+  info.style.cssText = 'font-size:.78rem;color:var(--muted);display:flex;gap:.8rem;flex-wrap:wrap';
+  const parts = [`${s.pct}%`, `${s.fmt_done} / ${s.fmt_total}`, `${s.files_done}/${s.files} files`];
+  if (s.speed) parts.push(s.speed);
+  if (s.current) parts.push('… ' + s.current);
+  for (const p of parts) { const sp = document.createElement('span'); sp.textContent = p; info.appendChild(sp); }
+  el.append(top, bar, info);
+}
+async function trackSend(job, name, plan, btn) {
+  _sendShown = job;
+  while (true) {
+    const s = await (await apiPost('send-status', {password: _pw, job})).json();
+    btn.textContent = s.state === 'running' ? Math.floor(s.pct) + '%' : '⏳';
+    if (_sendShown === job) renderSendProgress(name, plan, s);
+    if (s.state === 'done') return s.result;
+    if (s.state === 'error') throw new Error(s.error);
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
+async function sendTo(itemPath, name, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    showStatus('info', 'Checking "' + name + '" on ' + OTHER_LABEL + ' …');
+    const plan = await (await apiPost('send', {password: _pw, path: itemPath, dry: true})).json();
+    let mode = null;
+    if (plan.conflicts.length) {
+      mode = await askConflict(plan);
+      if (!mode) { showStatus('info', 'Send cancelled'); return; }
+    }
+    const job = (await (await apiPost('send', {password: _pw, path: itemPath, mode})).json()).job;
+    const d = await trackSend(job, name, plan, btn);
+    let msg = `Sent "${name}" → ${OTHER_LABEL}: /${d.dest} — ${d.sent} file(s), ${d.fmt}`;
+    if (d.merge) msg += ', merged';
+    if (d.overwritten) msg += `, ${d.overwritten} overwritten`;
+    if (d.renamed.length) msg += `, ${d.renamed.length} kept as: ` + d.renamed.slice(0, 3).map(r => r.split('/').pop()).join(', ') + (d.renamed.length > 3 ? ' …' : '');
+    showStatus('ok', msg);
+    clearTimeout(showStatus._t);
+    showStatus._t = setTimeout(() => { document.getElementById('browser-status').style.display = 'none'; }, 10000);
+    if (_bc) _bc.postMessage({side: OTHER});
+  } catch(e) {
+    showStatus('err', 'Send failed: ' + e.message);
+  } finally {
+    _sendShown = null;
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+// ── context menu ──────────────────────────────────────────────────────────────
+let _ctxMenu = null;
+function closeCtxMenu() {
+  if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+}
+function openCtxMenu(anchor, items) {
+  const reopen = _ctxMenu && _ctxMenu._anchor === anchor;
+  closeCtxMenu();
+  if (reopen) return;  // second click on the same ⋯ toggles it closed
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m._anchor = anchor;
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.className = 'ctx-item' + (it.danger ? ' danger' : '');
+    b.textContent = it.label;
+    b.onclick = e => { e.stopPropagation(); closeCtxMenu(); it.fn(); };
+    m.appendChild(b);
+  }
+  document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect();
+  const mw = m.offsetWidth, mh = m.offsetHeight;
+  let left = r.right - mw, top = r.bottom + 4;
+  if (top + mh > window.innerHeight - 8) top = r.top - mh - 4;
+  m.style.left = Math.max(8, left) + 'px';
+  m.style.top = Math.max(8, top) + 'px';
+  _ctxMenu = m;
+}
+function openToolbarMenu(e) {
+  e.stopPropagation();
+  openCtxMenu(e.currentTarget, [
+    {label: '📤 Upload', fn: triggerUpload},
+    ...(_path ? [{label: '🧹 Clean folder', danger: true,
+      fn: () => cleanFolder(_path, _path.split('/').pop(), document.getElementById('btn-more'))}] : []),
+  ]);
+}
+document.addEventListener('click', e => { if (_ctxMenu && !_ctxMenu.contains(e.target)) closeCtxMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtxMenu(); });
+window.addEventListener('scroll', closeCtxMenu, true);
+window.addEventListener('resize', closeCtxMenu);
+
+async function cleanFolder(path, name, btn) {
+  if (!confirm('Delete EVERYTHING inside "' + name + '"?\nThe folder itself is kept. This cannot be undone.')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const d = await (await apiPost('clean', {password: _pw, path})).json();
+    showStatus('ok', '✓ Cleaned ' + name + ' (' + d.removed + ' items removed)');
+    loadDir(_path);
+  } catch(e) {
+    showStatus('err', 'Clean failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+// ── downloads ─────────────────────────────────────────────────────────────────
+function downloadFile(path, name, btn) {
+  const params = new URLSearchParams(_pubMode
+    ? {token: _pubToken, sid: _sessionId, path}
+    : {pw: _pw, path}
+  );
+  const dlEp = _pubMode ? '__API__token/dl' : '__API__dl';
+  const a = document.createElement('a');
+  a.href = dlEp + '?' + params.toString();
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function downloadZip(path, name, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await apiPost('download-zip', {password: _pw, path});
+    triggerDownload(await r.blob(), name + '.zip');
+  } catch(e) {
+    showStatus('err', 'ZIP failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── MD5 ───────────────────────────────────────────────────────────────────────
+async function computeMd5(path, cell, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await apiPost('md5', {password: _pw, path});
+    const d = await r.json();
+    const copy = () => { try { navigator.clipboard && navigator.clipboard.writeText(d.md5); showToast('MD5 copied!'); } catch(_) {} };
+    let span = cell.querySelector('.md5-hash');
+    if (!span) {
+      span = document.createElement('div');
+      span.className = 'md5-hash'; span.title = 'Click to copy MD5';
+      span.onclick = copy;
+      cell.appendChild(span);
+    }
+    span.textContent = d.md5;
+    copy();
+  } catch(e) {
+    showStatus('err', 'MD5 error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+// ── folder size ───────────────────────────────────────────────────────────────
+function folderSizeText(item) {
+  return item.children + ' item' + (item.children !== 1 ? 's' : '') + ' · ' + fmtBytes(item.size);
+}
+
+async function calcFolderSize(item, path, cell, btn) {
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await apiPost(ep('folder-size'), buildBody({path}));
+    const d = await r.json();
+    item.size = d.size; item.children = d.children;
+    cell.textContent = folderSizeText(item);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '📊 Calc';
+    showStatus('err', 'Size error: ' + e.message);
+  }
+}
+
+// Sorting by size: fetch every uncalculated folder's size (3 at a time), then
+// re-sort. Abandoned if the user navigates away before it finishes.
+let _sizingItems = null;  // the listing a size run is working on
+async function sizeAllFolders() {
+  const items = _currentItems, base = _path;
+  const todo = items.filter(it => it.is_dir && it.size == null);
+  if (!todo.length || _sizingItems === items) return;
+  _sizingItems = items;
+  const total = todo.length;
+  let done = 0;
+  showStatus('info', 'Calculating folder sizes… 0/' + total);
+  const worker = async () => {
+    while (todo.length && _currentItems === items) {
+      const it = todo.shift();
+      try {
+        const r = await apiPost(ep('folder-size'), buildBody({path: joinPath(base, it.name)}));
+        const d = await r.json();
+        it.size = d.size; it.children = d.children;
+      } catch(_) {}
+      done++;
+      if (_currentItems === items) showStatus('info', 'Calculating folder sizes… ' + done + '/' + total);
+    }
+  };
+  try {
+    await Promise.all([worker(), worker(), worker()]);
+  } finally {
+    if (_sizingItems === items) _sizingItems = null;
+  }
+  if (_currentItems === items && _sortCol === 'size') {
+    renderList(items);
+    showStatus('ok', 'Sorted ' + total + ' folder' + (total !== 1 ? 's' : '') + ' by size');
+  }
+}
+
+// ── upload ────────────────────────────────────────────────────────────────────
+function triggerUpload() {
+  const input = document.getElementById('upload-input');
+  input.value = ''; input.click();
+}
+
+document.getElementById('upload-input').addEventListener('change', async function() {
+  const files = [...this.files];
+  if (!files.length) return;
+  const progEl = document.getElementById('upload-progress');
+  progEl.style.display = 'block';
+  let done = 0, failed = 0;
+  for (const file of files) {
+    progEl.className = 'status-msg info';
+    progEl.textContent = `Uploading ${file.name} (${done+1}/${files.length})…`;
+    const ok = await uploadOne(file);
+    if (ok) done++; else failed++;
+  }
+  if (failed === 0) {
+    progEl.className = 'status-msg ok';
+    progEl.textContent = `Uploaded ${done} file${done!==1?'s':''} successfully.`;
+  } else {
+    progEl.className = 'status-msg err';
+    progEl.textContent = `${done} uploaded, ${failed} failed.`;
+  }
+  setTimeout(() => { progEl.style.display = 'none'; }, 3500);
+  loadDir(_path);
+});
+
+async function uploadOne(file) {
+  const fd = new FormData();
+  fd.append('password', _pw); fd.append('path', _path); fd.append('file', file);
+  try {
+    const r = await fetch('__API__upload', {method: 'POST', body: fd});
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({detail: 'Error'}));
+      showStatus('err', `"${file.name}": ${e.detail}`);
+      return false;
+    }
+    return true;
+  } catch(e) {
+    showStatus('err', `"${file.name}": ${e.message}`);
+    return false;
+  }
+}
+
+// ── zip all ───────────────────────────────────────────────────────────────────
+async function doZipAll() {
+  const folderName = _path ? _path.split('/').pop() : 'DATA';
+  if (!confirm('Zip all non-zip files in "' + folderName + '"?\nOriginal files will be deleted after zipping.')) return;
+  const btn = document.getElementById('btn-zip-all');
+  btn.disabled = true;
+  btn.textContent = '⏳ Zipping…';
+  try {
+    const r = await apiPost('zip-all', {password: _pw, path: _path});
+    const d = await r.json();
+    showStatus('ok', '✓ Zipped ' + d.count + ' files → ' + d.zip + ' (' + d.size + ')');
+    loadDir(_path);
+  } catch(e) {
+    showStatus('err', 'Zip failed: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '📦 Zip All Loose Files';
+}
+
+// ── file type / icon helpers ──────────────────────────────────────────────────
+// files with no extension at all (done_local, fetch_list) and dotfiles (.bashrc)
+// — the browser cannot tell what they are, but they are almost always text
+function noExt(name) {
+  return name.lastIndexOf('.') <= 0;
+}
+
+// keep in sync with IMAGE_TYPES on the server
+const IMAGE_EXTS = ['png','jpg','jpeg','gif','webp','bmp','ico','avif','apng','tif','tiff','svg'];
+
+function fileType(name) {
+  const lower = name.toLowerCase();
+  if (noExt(lower)) return 'text';
+  const ext = lower.split('.').pop();
+  if (ext === 'zip') return 'zip';
+  if (ext === 'json') return 'json';
+  if (ext === 'csv') return 'csv';
+  if (IMAGE_EXTS.includes(ext)) return 'image';
+  const textExts = ['txt','log','md','py','js','ts','jsx','tsx','html','htm','css','yaml','yml','toml','ini','conf','cfg','sh','bash','xml','sql','r','rs','go','java','c','cpp','h','hpp','rb','php'];
+  if (textExts.includes(ext)) return 'text';
+  return 'other';
+}
+
+function fileIcon2(name, isDir) {
+  if (isDir) return '📁';
+  const t = fileType(name);
+  if (t === 'zip') return '📦';
+  if (t === 'json') return '📋';
+  if (t === 'csv') return '📊';
+  if (t === 'image') return '🖼';
+  if (t === 'text') return '📝';
+  return '📄';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── modal ─────────────────────────────────────────────────────────────────────
+let _modalStack = [];
+
+function openModal(title, bodyEl, nested) {
+  const ov = document.getElementById('modal-ov');
+  const ttl = document.getElementById('modal-ttl');
+  const act = document.getElementById('modal-act');
+  const b = document.getElementById('modal-bd');
+  if (nested && ov.style.display !== 'none') {
+    // stash current view (e.g. the zip listing) so close returns to it
+    _modalStack.push({title: ttl.textContent, nodes: Array.from(b.childNodes),
+                      act: Array.from(act.childNodes)});
+  } else if (!nested) {
+    _modalStack = [];
+  }
+  ttl.textContent = title;
+  act.innerHTML = '';
+  b.innerHTML = '';
+  b.appendChild(bodyEl);
+  ov.style.display = 'flex';
+}
+
+function closeModal() {
+  if (!confirmDiscard()) return;
+  _edState = null;
+  _pvState = null;
+  _ivState = null;
+  const box = document.querySelector('.modal-box');
+  if (box) box.classList.remove('iv-box');
+  const ttl = document.getElementById('modal-ttl');
+  const act = document.getElementById('modal-act');
+  const b = document.getElementById('modal-bd');
+  act.innerHTML = '';
+  if (_modalStack.length) {
+    // only close the preview — restore the underlying view (zip content)
+    const prev = _modalStack.pop();
+    ttl.textContent = prev.title;
+    b.innerHTML = '';
+    prev.nodes.forEach(n => b.appendChild(n));
+    (prev.act || []).forEach(n => act.appendChild(n));
+    return;
+  }
+  document.getElementById('modal-ov').style.display = 'none';
+  b.innerHTML = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── text / json / csv preview ─────────────────────────────────────────────────
+let _pvState = null;  // {itemPath, name, size, pageSize, pages, page, raw, editable} while a file preview is open
+let _edState = null;  // {ta, original} while that preview is switched into edit mode
+
+function buildPreviewBody(content, truncated, size, name, pager) {
+  const wrap = document.createElement('div');
+  if (pager) {
+    wrap.appendChild(pager);
+  } else if (truncated) {
+    const w = document.createElement('div');
+    w.className = 'pv-warn';
+    w.textContent = '⚠️ File is ' + fmtBytes(size) + ' — showing first 200 KB only.';
+    wrap.appendChild(w);
+  }
+  const pre = document.createElement('pre');
+  pre.className = 'pv-pre';
+  const ft = fileType(name);
+  if (ft === 'json') {
+    try { pre.textContent = JSON.stringify(JSON.parse(content), null, 2); }
+    catch(_) { pre.textContent = content; }
+  } else {
+    pre.textContent = content;
+  }
+  wrap.appendChild(pre);
+  return wrap;
+}
+
+function buildPager() {
+  const st = _pvState;
+  const bar = document.createElement('div');
+  bar.className = 'pv-pager';
+  const mk = (label, title, page, disabled) => {
+    const b = document.createElement('button');
+    b.className = 'bti'; b.textContent = label; b.title = title; b.disabled = disabled;
+    b.onclick = () => gotoPreviewPage(page);
+    return b;
+  };
+  bar.appendChild(mk('⏮', 'First page (Home)', 0, st.page === 0));
+  bar.appendChild(mk('◀', 'Previous page (←)', st.page - 1, st.page === 0));
+  const info = document.createElement('span');
+  info.className = 'pv-info';
+  const from = st.page * st.pageSize;
+  const to = Math.min(st.size, (st.page + 1) * st.pageSize);
+  info.textContent = 'Page ' + (st.page + 1) + ' / ' + st.pages +
+    '  ·  ' + fmtBytes(from) + '–' + fmtBytes(to) + ' of ' + fmtBytes(st.size);
+  bar.appendChild(info);
+  bar.appendChild(mk('▶', 'Next page (→)', st.page + 1, st.page >= st.pages - 1));
+  bar.appendChild(mk('⏭', 'Last page (End)', st.pages - 1, st.page >= st.pages - 1));
+  return bar;
+}
+
+function renderPreview(d) {
+  const st = _pvState;
+  const paged = st && st.pages > 1;
+  const b = document.getElementById('modal-bd');
+  b.innerHTML = '';
+  b.appendChild(buildPreviewBody(d.content, d.truncated, d.size, st ? st.name : '', paged ? buildPager() : null));
+  b.scrollTop = 0;
+}
+
+async function gotoPreviewPage(page) {
+  const st = _pvState;
+  if (!st) return;
+  page = Math.max(0, Math.min(st.pages - 1, page));
+  try {
+    const r = await apiPost(ep('preview'), buildBody({path: st.itemPath, offset: page * st.pageSize}));
+    const d = await r.json();
+    st.page = page;
+    st.raw = d.content;
+    renderPreview(d);
+  } catch(e) { showStatus('err', 'Load failed: ' + e.message); }
+}
+
+async function openFilePreview(itemPath, name, btn) {
+  // no extension means we are guessing — check before dumping a possibly huge
+  // or binary file into the viewer
+  if (noExt(name) && !confirm(name + ' has no file extension.\n\nOpen it as plain text?'
+      + '\n\nIt loads 200 KB at a time; if it turns out to be binary it will look like garbage.')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await apiPost(ep('preview'), buildBody({path: itemPath, offset: 0}));
+    const d = await r.json();
+    const pageSize = d.page_size || (200 * 1024);
+    const pages = Math.max(1, Math.ceil(d.size / pageSize));
+    _pvState = {itemPath, name, size: d.size, pageSize, pages, page: 0,
+                raw: d.content, editable: !!d.editable};
+    const icon = fileType(name) === 'json' ? '📋' : fileType(name) === 'csv' ? '📊' : '📝';
+    openModal(icon + ' ' + name, buildPreviewBody(d.content, d.truncated, d.size, name, pages > 1 ? buildPager() : null));
+    setPreviewActions();
+  } catch(e) { showStatus('err', 'Preview failed: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+
+// ── preview editor ────────────────────────────────────────────────────────────
+// Only offered when the server said the file is editable: small enough that the
+// single preview page IS the whole file, and clean UTF-8. Saving replaces the
+// entire file, so a partial view must never be savable.
+
+function edDirty() {
+  return !!(_edState && _edState.ta.value !== _edState.original);
+}
+
+function confirmDiscard() {
+  return !edDirty() || confirm('Discard unsaved changes?');
+}
+
+function actBtn(label, title, cls, fn) {
+  const b = document.createElement('button');
+  b.className = 'bti' + (cls ? ' ' + cls : '');
+  b.textContent = label;
+  b.title = title;
+  if (fn) b.onclick = fn;
+  return b;
+}
+
+function setPreviewActions() {
+  const act = document.getElementById('modal-act');
+  if (!act) return;
+  act.innerHTML = '';
+  const st = _pvState;
+  if (!st || _pubMode) return;          // public links are read-only
+  if (_edState) {
+    act.appendChild(actBtn('💾 Save', 'Save changes (Ctrl+S)', 'ok', saveEdit));
+    act.appendChild(actBtn('✕ Cancel', 'Discard changes (Esc)', '', cancelEdit));
+    return;
+  }
+  if (!st.editable) {
+    // say why, rather than silently hiding the button
+    const why = st.size > st.pageSize
+      ? 'Too large to edit here (over 200 KB)'
+      : 'Not editable — file is not clean UTF-8 text';
+    const b = actBtn('✏️ Edit', why, '', null);
+    b.disabled = true;
+    act.appendChild(b);
+    return;
+  }
+  act.appendChild(actBtn('✏️ Edit', 'Edit this file as text', '', startEdit));
+}
+
+function renderPreviewFromState() {
+  const st = _pvState;
+  if (!st) return;
+  renderPreview({content: st.raw, truncated: false, size: st.size});
+}
+
+function startEdit() {
+  const st = _pvState;
+  if (!st || !st.editable || _pubMode) return;
+  const b = document.getElementById('modal-bd');
+  b.innerHTML = '';
+  const bar = document.createElement('div');
+  bar.className = 'pv-editbar';
+  const info = document.createElement('span');
+  info.className = 'pv-info';
+  info.textContent = 'Editing as plain text — Save writes UTF-8 over the whole file.';
+  bar.appendChild(info);
+  const ta = document.createElement('textarea');
+  ta.className = 'pv-edit';
+  ta.spellcheck = false;
+  // edit the raw bytes as decoded, never the JSON-prettified view — otherwise
+  // saving would silently reformat the file
+  ta.value = st.raw;
+  b.appendChild(bar);
+  b.appendChild(ta);
+  b.scrollTop = 0;
+  _edState = {ta: ta, original: st.raw};
+  setPreviewActions();
+  ta.focus();
+}
+
+function cancelEdit() {
+  if (!confirmDiscard()) return;
+  _edState = null;
+  renderPreviewFromState();
+  setPreviewActions();
+}
+
+async function saveEdit() {
+  const st = _pvState, ed = _edState;
+  if (!st || !ed) return;
+  const btns = document.getElementById('modal-act').querySelectorAll('button');
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const r = await apiPost('save', {password: _pw, path: st.itemPath, content: ed.ta.value});
+    const d = await r.json();
+    st.raw = ed.ta.value;
+    st.size = d.size;
+    _edState = null;
+    renderPreviewFromState();
+    setPreviewActions();
+    showStatus('ok', 'Saved ' + st.name + ' (' + d.fmt + ')');
+    loadDir(_path);                     // size/mtime in the table are now stale
+  } catch(e) {
+    btns.forEach(b => { b.disabled = false; });
+    showStatus('err', 'Save failed: ' + e.message);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (_edState && (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    saveEdit();
+  }
+});
+
+// ── image viewer ──────────────────────────────────────────────────────────────
+let _ivState = null;  // {list:[{path,name,size}], idx, actual} while the image viewer is open
+
+function rawUrl(path) {
+  const params = new URLSearchParams(_pubMode
+    ? {token: _pubToken, sid: _sessionId, path}
+    : {pw: _pw, path}
+  );
+  return (_pubMode ? '__API__token/raw' : '__API__raw') + '?' + params.toString();
+}
+
+// every image in the current folder, in the order the table shows them —
+// so ◀ / ▶ walk the folder like a gallery
+function folderImages() {
+  return sortItems(_currentItems)
+    .filter(i => !i.is_dir && fileType(i.name) === 'image')
+    .map(i => ({path: joinPath(_path, i.name), name: i.name, size: i.size}));
+}
+
+function buildImageBody() {
+  const st = _ivState;
+  const cur = st.list[st.idx];
+  const wrap = document.createElement('div');
+  wrap.className = 'iv-wrap';
+
+  const bar = document.createElement('div');
+  bar.className = 'iv-bar';
+  const mk = (label, title, fn, disabled) => {
+    const b = document.createElement('button');
+    b.className = 'bti'; b.textContent = label; b.title = title; b.disabled = !!disabled;
+    b.onclick = fn;
+    return b;
+  };
+  if (st.list.length > 1) {
+    bar.appendChild(mk('◀', 'Previous image (←)', () => gotoImage(st.idx - 1)));
+    bar.appendChild(mk('▶', 'Next image (→)', () => gotoImage(st.idx + 1)));
+    const cnt = document.createElement('span');
+    cnt.className = 'pv-info';
+    cnt.textContent = (st.idx + 1) + ' / ' + st.list.length;
+    bar.appendChild(cnt);
+  }
+  const dims = document.createElement('span');
+  dims.className = 'pv-info'; dims.id = 'iv-dims';
+  dims.textContent = cur.size != null ? fmtBytes(cur.size) : '';
+  bar.appendChild(dims);
+
+  const spacer = document.createElement('span');
+  spacer.style.flex = '1';
+  bar.appendChild(spacer);
+
+  bar.appendChild(mk(st.actual ? '🔍 Fit' : '🔍 1:1',
+    st.actual ? 'Scale to fit the window' : 'Show at actual pixel size',
+    () => { st.actual = !st.actual; renderImageViewer(); }));
+  const tabBtn = document.createElement('button');
+  tabBtn.className = 'bti'; tabBtn.textContent = '↗'; tabBtn.title = 'Open in new tab';
+  tabBtn.onclick = () => window.open(rawUrl(cur.path), '_blank');
+  bar.appendChild(tabBtn);
+  bar.appendChild(mk('📥', 'Download', () => downloadFile(cur.path, cur.name)));
+  wrap.appendChild(bar);
+
+  const stage = document.createElement('div');
+  stage.className = 'iv-stage' + (st.actual ? ' actual' : '');
+  const img = document.createElement('img');
+  img.className = 'iv-img';
+  img.alt = cur.name;
+  img.src = rawUrl(cur.path);
+  img.onload = () => {
+    const d = document.getElementById('iv-dims');
+    if (d) d.textContent = img.naturalWidth + '×' + img.naturalHeight +
+      (cur.size != null ? '  ·  ' + fmtBytes(cur.size) : '');
+  };
+  img.onerror = () => {
+    stage.innerHTML = '';
+    const e = document.createElement('div');
+    e.className = 'pv-warn';
+    e.textContent = '⚠️ Could not load ' + cur.name;
+    stage.appendChild(e);
+  };
+  if (st.list.length > 1) img.onclick = () => gotoImage(st.idx + 1);
+  stage.appendChild(img);
+  wrap.appendChild(stage);
+  return wrap;
+}
+
+function renderImageViewer() {
+  const st = _ivState;
+  const cur = st.list[st.idx];
+  document.getElementById('modal-ttl').textContent = '🖼 ' + cur.name;
+  const b = document.getElementById('modal-bd');
+  b.innerHTML = '';
+  b.appendChild(buildImageBody());
+  b.scrollTop = 0; b.scrollLeft = 0;
+}
+
+function gotoImage(idx) {
+  const st = _ivState;
+  if (!st) return;
+  const n = st.list.length;
+  st.idx = ((idx % n) + n) % n;   // wrap around
+  renderImageViewer();
+}
+
+function openImageViewer(name) {
+  const list = folderImages();
+  const idx = Math.max(0, list.findIndex(i => i.name === name));
+  if (!list.length) return;
+  _ivState = {list, idx, actual: false};
+  const box = document.querySelector('.modal-box');
+  if (box) box.classList.add('iv-box');
+  openModal('🖼 ' + list[idx].name, buildImageBody());
+}
+
+// arrow keys walk the gallery while the image viewer is open
+document.addEventListener('keydown', e => {
+  if (!_ivState) return;
+  if (document.getElementById('modal-ov').style.display === 'none') return;
+  if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); gotoImage(_ivState.idx + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); gotoImage(_ivState.idx - 1); }
+  else if (e.key === 'Home') { e.preventDefault(); gotoImage(0); }
+  else if (e.key === 'End') { e.preventDefault(); gotoImage(_ivState.list.length - 1); }
+});
+
+// page navigation shortcuts (only while a multi-page file preview is open)
+document.addEventListener('keydown', e => {
+  if (!_pvState || _pvState.pages <= 1) return;
+  if (document.getElementById('modal-ov').style.display === 'none') return;
+  if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  let target = null;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') target = _pvState.page + 1;
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') target = _pvState.page - 1;
+  else if (e.key === 'Home') target = 0;
+  else if (e.key === 'End') target = _pvState.pages - 1;
+  if (target !== null) { e.preventDefault(); gotoPreviewPage(target); }
+});
+
+// ── zip viewer ────────────────────────────────────────────────────────────────
+function buildZipTree(entries) {
+  const root = {children: {}, files: []};
+  for (const e of entries) {
+    const parts = e.name.split('/').filter(Boolean);
+    if (e.is_dir) {
+      let node = root;
+      for (const p of parts) {
+        if (!node.children[p]) node.children[p] = {children: {}, files: []};
+        node = node.children[p];
+      }
+    } else {
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!node.children[parts[i]]) node.children[parts[i]] = {children: {}, files: []};
+        node = node.children[parts[i]];
+      }
+      node.files.push({name: parts[parts.length - 1], fullPath: e.name, size: e.size});
+    }
+  }
+  return root;
+}
+
+function renderZipTree(node, zipPath, depth) {
+  const ul = document.createElement('ul');
+  ul.className = 'zt-ul';
+
+  const sortedFolders = Object.entries(node.children).sort(([a],[b]) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  for (const [folderName, child] of sortedFolders) {
+    const li = document.createElement('li');
+    const hdr = document.createElement('div');
+    hdr.className = 'zt-hdr';
+    const arrow = document.createElement('span');
+    arrow.style.cssText = 'color:var(--muted);font-size:.72rem;width:.8rem;text-align:center;flex-shrink:0';
+    arrow.textContent = '▼';
+    const lbl = document.createElement('span');
+    lbl.textContent = '📁 ' + folderName;
+    hdr.appendChild(arrow); hdr.appendChild(lbl);
+    const sub = renderZipTree(child, zipPath, depth + 1);
+    let open = true;
+    hdr.onclick = () => { open = !open; arrow.textContent = open ? '▼' : '▶'; sub.style.display = open ? '' : 'none'; };
+    li.appendChild(hdr); li.appendChild(sub);
+    ul.appendChild(li);
+  }
+
+  const sortedFiles = [...node.files].sort((a,b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  for (const file of sortedFiles) {
+    const li = document.createElement('li');
+    li.className = 'zt-file';
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'zt-name';
+    const ico = document.createElement('span');
+    ico.style.flexShrink = '0';
+    ico.textContent = fileIcon2(file.name, false);
+    const txt = document.createElement('span');
+    txt.title = file.fullPath;
+    txt.textContent = file.name;
+    const sz = document.createElement('span');
+    sz.className = 'zt-sz';
+    sz.textContent = fmtBytes(file.size);
+    nameWrap.appendChild(ico); nameWrap.appendChild(txt); nameWrap.appendChild(sz);
+    li.appendChild(nameWrap);
+    const ft = fileType(file.name);
+    if (['json','csv','text'].includes(ft)) {
+      const pvBtn = document.createElement('button');
+      pvBtn.className = 'bti'; pvBtn.style.flexShrink = '0';
+      pvBtn.textContent = '👁'; pvBtn.title = 'Preview';
+      pvBtn.onclick = () => previewZipEntry(zipPath, file.fullPath, file.name, pvBtn);
+      li.appendChild(pvBtn);
+    }
+    ul.appendChild(li);
+  }
+  return ul;
+}
+
+async function openZipViewer(itemPath, name, btn) {
+  _pvState = null;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await apiPost(ep('zip-list'), buildBody({path: itemPath}));
+    const d = await r.json();
+    const tree = buildZipTree(d.entries);
+    const container = document.createElement('div');
+    const fileCount = d.entries.filter(e => !e.is_dir).length;
+    const dirCount = d.entries.filter(e => e.is_dir).length;
+    const info = document.createElement('div');
+    info.style.cssText = 'font-size:.78rem;color:var(--muted);margin-bottom:.6rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)';
+    info.textContent = fileCount + ' file' + (fileCount !== 1 ? 's' : '') + (dirCount ? ', ' + dirCount + ' folder' + (dirCount !== 1 ? 's' : '') : '');
+    container.appendChild(info);
+    container.appendChild(renderZipTree(tree, itemPath, 0));
+    openModal('📦 ' + name, container);
+  } catch(e) {
+    if (/invalid zip/i.test(e.message)) {
+      btn.disabled = false; btn.textContent = orig;
+      if (confirm('"' + name + '" is corrupt (Invalid ZIP file).\n\n'
+        + 'This usually happens when the writer did not close the archive properly. '
+        + 'Attempt to repair it by recovering the readable entries and rebuilding the file?\n\n'
+        + 'The original will be replaced with the repaired version.')) {
+        await repairZip(itemPath, name, btn);
+      }
+      return;
+    }
+    showStatus('err', 'ZIP open failed: ' + e.message);
+  }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function repairZip(itemPath, name, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '🛠';
+  try {
+    const r = await apiPost(ep('zip-repair'), buildBody({path: itemPath}));
+    const d = await r.json();
+    showStatus('ok', '🛠 Repaired "' + name + '" — recovered ' + d.recovered
+      + ' file' + (d.recovered !== 1 ? 's' : ''));
+    btn.disabled = false; btn.textContent = orig;
+    await openZipViewer(itemPath, name, btn);  // reopen the now-valid archive
+  } catch(e) {
+    showStatus('err', 'Repair failed: ' + e.message);
+  } finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function previewZipEntry(zipPath, entryPath, name, btn) {
+  _pvState = null;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const body = _pubMode
+      ? {token: _pubToken, session_id: _sessionId, zip_path: zipPath, entry_path: entryPath}
+      : {password: _pw, zip_path: zipPath, entry_path: entryPath};
+    const ep2 = _pubMode ? 'token/zip-preview' : 'zip-preview';
+    const r = await apiPost(ep2, body);
+    const d = await r.json();
+    openModal('📄 ' + name + ' (in ZIP)', buildPreviewBody(d.content, d.truncated, d.size, name), true);
+  } catch(e) { showStatus('err', 'Preview failed: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
+(async () => {
+  if (_pubMode) {
+    document.getElementById('auth-card').style.display = 'none';
+    document.getElementById('browser').style.display = '';
+    document.getElementById('pub-badge').style.display = '';
+    const listEl = document.getElementById('file-list');
+    listEl.innerHTML = '<div class="load-msg">Connecting…</div>';
+    try {
+      const r = await apiPost('token/info', {token: _pubToken, session_id: _sessionId, path: ''});
+      const d = await r.json();
+      _pubBaseFolder = d.folder;
+      loadDir('');
+    } catch(e) {
+      listEl.innerHTML = '<div class="empty-dir" style="color:var(--danger)">🔒 ' + e.message + '</div>';
+    }
+    return;
+  }
+  const saved = 'local';
+  if (saved) {
+    document.getElementById('auth-pw').value = saved;
+    await tryLogin(saved);
+  }
+})();
+</script>
+</body>
+</html>

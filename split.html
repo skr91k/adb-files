@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>💻 Mac ⇄ 📱 Android</title>
+<style>
+:root{--bg:#0f1117;--border:#2a2d3a;--accent:#6c63ff}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);overflow:hidden}
+#split{display:flex;height:100vh;width:100vw}
+.pane{flex:0 0 50%;min-width:0;min-height:0;border:0;background:var(--bg)}
+#right{flex:1 1 auto}
+#divider{flex:0 0 6px;background:var(--border);cursor:col-resize;position:relative}
+#divider:hover,#divider.drag{background:var(--accent)}
+#divider::after{content:'';position:absolute;inset:0 -4px}  /* wider grab area */
+body.dragging .pane{pointer-events:none}   /* iframes would swallow the mouse moves */
+body.dragging{cursor:col-resize;user-select:none}
+@media (max-width:760px){
+  #split{flex-direction:column}
+  .pane{flex-basis:50%!important}
+  #divider{flex-basis:6px;cursor:row-resize}
+}
+</style>
+</head>
+<body>
+<div id="split">
+  <iframe id="left" class="pane" src="/local/" title="Mac"></iframe>
+  <div id="divider" title="Drag to resize · double-click to reset"></div>
+  <iframe id="right" class="pane" src="/adb/" title="Android"></iframe>
+</div>
+<script>
+const left = document.getElementById('left');
+const divider = document.getElementById('divider');
+function setRatio(r) {
+  r = Math.min(85, Math.max(15, r));
+  left.style.flexBasis = r + '%';
+  try { localStorage.setItem('split_ratio', r); } catch(_) {}
+}
+try { const r = parseFloat(localStorage.getItem('split_ratio')); if (r) setRatio(r); } catch(_) {}
+divider.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  divider.setPointerCapture(e.pointerId);
+  divider.classList.add('drag');
+  document.body.classList.add('dragging');
+  const move = ev => setRatio(ev.clientX / window.innerWidth * 100);
+  const up = () => {
+    divider.classList.remove('drag');
+    document.body.classList.remove('dragging');
+    divider.removeEventListener('pointermove', move);
+    divider.removeEventListener('pointerup', up);
+  };
+  divider.addEventListener('pointermove', move);
+  divider.addEventListener('pointerup', up);
+});
+divider.addEventListener('dblclick', () => setRatio(50));
+</script>
+</body>
+</html>

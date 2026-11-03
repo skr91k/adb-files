@@ -296,7 +296,6 @@ async function tryLogin(pw) {
   try {
     await apiPost('auth', {password: pw});
     _pw = pw;
-    localStorage.setItem('sysmon_pw', pw);
     document.getElementById('auth-card').style.display = 'none';
     document.getElementById('browser').style.display = '';
     document.getElementById('btn-zip-all').style.display = '';
@@ -1810,11 +1809,8 @@ async function previewZipEntry(zipPath, entryPath, name, btn) {
     }
     return;
   }
-  const saved = 'local';
-  if (saved) {
-    document.getElementById('auth-pw').value = saved;
-    await tryLogin(saved);
-  }
+  // no real auth here; don't fill the password field or Chrome offers to save it
+  if (!await tryLogin('local')) document.getElementById('auth-card').style.display = '';
 })();
 </script>
 </body>

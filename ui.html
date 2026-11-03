@@ -40,6 +40,12 @@ input:focus{border-color:var(--accent)}
 .bc-cur{color:var(--text);font-weight:600;padding:.15rem .35rem}
 .lock-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:.3rem .6rem;cursor:pointer;font-size:.8rem}
 .lock-btn:hover{background:#2a2d3a;color:var(--text)}
+.disk-free{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:.1rem .2rem .1rem .55rem;white-space:nowrap}
+.disk-free.low{color:var(--warn);border-color:#5c4a1a}
+.disk-free-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;line-height:1;padding:.15rem .3rem;border-radius:4px}
+.disk-free-btn:hover{background:#2a2d3a;color:var(--text)}
+.disk-free-btn.spin{animation:dfspin .8s linear infinite}
+@keyframes dfspin{to{transform:rotate(360deg)}}
 .ftable{width:100%;border-collapse:collapse;font-size:.87rem}
 .ftable th{position:sticky;top:var(--stick-h,0);z-index:18;background:var(--card);font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.5rem .6rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
 .ftable td{padding:.45rem .6rem;border-bottom:1px solid #161923;vertical-align:middle}
@@ -130,6 +136,7 @@ input:focus{border-color:var(--accent)}
     <div class="browser-hdr">
       <div class="breadcrumb" id="breadcrumb"></div>
       <div style="display:flex;gap:.4rem;align-items:center">
+        <span id="disk-free" class="disk-free" title="Free space on this drive"><span id="disk-free-txt">💾 …</span><button class="disk-free-btn" onclick="loadDiskFree()" title="Refresh free space">↻</button></span>
         <button class="lock-btn" onclick="loadDir(_path)" title="Refresh current folder">🔄 Refresh</button>
         <button class="lock-btn" id="btn-zip-all" onclick="doZipAll()" style="display:none" title="Zip all non-zip files in current folder">📦 Zip All Loose Files</button>
         <button class="lock-btn" id="btn-more" onclick="openToolbarMenu(event)" style="display:none" title="More actions">⋯ More</button>
@@ -378,8 +385,27 @@ async function loadDir(path) {
     renderBreadcrumb(d.path);
     renderList(d.items);
     if (_sortCol === 'size') sizeAllFolders();
+    loadDiskFree();
   } catch(e) {
     listEl.innerHTML = '<div class="empty-dir">' + e.message + '</div>';
+  }
+}
+
+async function loadDiskFree() {
+  const wrap = document.getElementById('disk-free');
+  const txt = document.getElementById('disk-free-txt');
+  const btn = wrap.querySelector('.disk-free-btn');
+  btn.classList.add('spin');
+  try {
+    const d = await (await apiPost(ep('disk-free'), buildBody({path: _path}))).json();
+    txt.textContent = '💾 ' + fmtBytes(d.free) + ' free of ' + fmtBytes(d.total);
+    wrap.classList.toggle('low', d.total > 0 && d.free / d.total < 0.1);
+    wrap.title = 'Free space on this drive';
+  } catch(e) {
+    txt.textContent = '💾 ?';
+    wrap.title = 'Free space unavailable: ' + e.message;
+  } finally {
+    btn.classList.remove('spin');
   }
 }
 
@@ -797,7 +823,18 @@ function renderSendProgress(name, plan, s, verb = '📤 Sending') {
   clearTimeout(showStatus._t);
   el.textContent = '';
   const top = document.createElement('div');
-  top.textContent = plan.here
+  top.style.cssText = 'display:flex;align-items:flex-start;gap:.6rem';
+  const title = document.createElement('span');
+  title.style.flex = '1';
+  const job = _sendShown;
+  const x = document.createElement('button');
+  x.className = 'bti';
+  x.title = 'Stop this transfer';
+  x.textContent = _sendCancelling === job ? '⏳ Stopping…' : '✕ Stop';
+  x.disabled = _sendCancelling === job;
+  x.onclick = () => cancelSend(job, x);
+  top.append(title, x);
+  title.textContent = plan.here
     ? `${verb} ${OTHER_LABEL}: "${name}" → /${plan.dest}`
     : verb.startsWith('⬇️')
     ? `${verb} ${OTHER_LABEL}: "${name}" → /${plan.dest}`
@@ -822,6 +859,14 @@ function renderSendProgress(name, plan, s, verb = '📤 Sending') {
   for (const p of parts) { const sp = document.createElement('span'); sp.textContent = p; info.appendChild(sp); }
   el.append(top, bar, info);
 }
+let _sendCancelling = null;
+async function cancelSend(job, x) {
+  if (!confirm('Stop this transfer? The file being copied right now is removed; files already copied stay.')) return;
+  _sendCancelling = job;
+  x.disabled = true; x.textContent = '⏳ Stopping…';
+  try { await apiPost('send-cancel', {password: _pw, job}); }
+  catch(e) { _sendCancelling = null; showToast('Stop failed: ' + e.message); }
+}
 async function trackSend(job, name, plan, btn, verb) {
   _sendShown = job;
   while (true) {
@@ -830,6 +875,7 @@ async function trackSend(job, name, plan, btn, verb) {
     if (_sendShown === job) renderSendProgress(name, plan, s, verb);
     if (s.state === 'done') return s.result;
     if (s.state === 'error') throw new Error(s.error);
+    if (s.state === 'cancelled') throw new Error(`stopped (${s.files_done}/${s.files} files copied)`);
     await new Promise(r => setTimeout(r, 1000));
   }
 }

@@ -250,13 +250,17 @@ class ApiError(Exception):
 def adb(*args, check=True) -> subprocess.CompletedProcess:
     r = subprocess.run(["adb", *args], capture_output=True)
     if check and r.returncode:
-        msg = (r.stderr or r.stdout).decode("utf-8", "replace").strip()
-        if "Permission denied" in msg:
-            raise ApiError(403, "Permission denied")
-        if "no devices" in msg or "device offline" in msg or "not found" in msg and "device" in msg:
-            raise ApiError(503, "Android device not connected")
-        raise ApiError(500, msg or f"adb exited {r.returncode}")
+        _adb_fail(r.returncode, r.stdout, r.stderr)
     return r
+
+
+def _adb_fail(code: int, out: bytes, err: bytes):
+    msg = (err or out or b"").decode("utf-8", "replace").strip()
+    if "Permission denied" in msg:
+        raise ApiError(403, "Permission denied")
+    if "no devices" in msg or "device offline" in msg or "not found" in msg and "device" in msg:
+        raise ApiError(503, "Android device not connected")
+    raise ApiError(500, msg or f"adb exited {code}")
 
 
 def sh(cmd: str, check=True) -> str:
@@ -359,6 +363,11 @@ class LocalBackend(Backend):
 
     def md5_many(self, paths):
         return {p: self.md5(p) for p in paths}
+
+    def disk_free(self, p):
+        """(free, total) bytes on the volume holding p."""
+        du = shutil.disk_usage(p)
+        return du.free, du.total
 
     def rename(self, p, dest):
         os.rename(p, dest)
@@ -496,6 +505,14 @@ class AdbBackend(Backend):
                     out[posixpath.normpath(p)] = h
         return out
 
+    def disk_free(self, p):
+        # toybox df -k: Filesystem 1K-blocks Used Available Use% Mounted-on
+        parts = sh(f"df -k {q(as_dir(p))}").strip().splitlines()[-1].split()
+        try:
+            return int(parts[-3]) * 1024, int(parts[-5]) * 1024
+        except (IndexError, ValueError):
+            raise ApiError(500, "Could not read free space")
+
     def rename(self, p, dest):
         sh(f"mv {q(p)} {q(dest)}")
 
@@ -609,6 +626,13 @@ def ep_folder_size(be, b):
     be.need(p, "dir")
     total, children = be.folder_size(p)
     return {"size": total, "fmt": _fmt(total), "children": children}
+
+
+def ep_disk_free(be, b):
+    p = norm(b.get("path"))
+    be.need(p, "dir")
+    free, total = be.disk_free(p)
+    return {"free": free, "total": total, "fmt": f"{_fmt(free)} free of {_fmt(total)}"}
 
 
 def ep_rename(be, b):
@@ -973,7 +997,7 @@ def start_send_job(dest_be, steps, total, nfiles, result, prepare=None) -> str:
     job = {"dest_be": dest_be, "steps": steps, "total": total, "files": nfiles,
            "result": result, "state": "running", "error": None, "step": 0,
            "done_bytes": 0, "done_files": 0, "t0": time.time(), "t1": None,
-           "baseline": {}, "poll": (0.0, 0, ""), "phase": ""}
+           "baseline": {}, "poll": (0.0, 0, ""), "phase": "", "cancel": False, "proc": None}
 
     def run():
         try:
@@ -982,13 +1006,22 @@ def start_send_job(dest_be, steps, total, nfiles, result, prepare=None) -> str:
                 job["phase"] = ""
                 job["t0"] = time.time()   # speed counts copying only
             for i, (args, targets) in enumerate(job["steps"]):
+                if job["cancel"]:
+                    break
                 # files being overwritten already exist: only count them once they change
                 job["baseline"] = dest_be.sizes([tg for tg, _ in targets])
                 job["step"] = i
-                adb(*args)
+                proc = job["proc"] = subprocess.Popen(["adb", *args], stdout=subprocess.PIPE,
+                                                      stderr=subprocess.PIPE)
+                out, err = proc.communicate()
+                if job["cancel"]:
+                    _drop_partial(dest_be, targets)
+                    break
+                if proc.returncode:
+                    _adb_fail(proc.returncode, out, err)
                 job["done_bytes"] += sum(n for _, n in targets)
                 job["done_files"] += len(targets)
-            job["state"] = "done"
+            job["state"] = "cancelled" if job["cancel"] else "done"
         except ApiError as e:
             job["state"], job["error"] = "error", e.detail
         except Exception as e:
@@ -1002,6 +1035,27 @@ def start_send_job(dest_be, steps, total, nfiles, result, prepare=None) -> str:
         _jobs[jid] = job
     threading.Thread(target=run, daemon=True).start()
     return jid
+
+
+def _drop_partial(dest_be, targets):
+    """Remove files the killed step left half-written."""
+    try:
+        seen = dest_be.sizes([tg for tg, _ in targets])
+        for tg, n in targets:
+            if tg in seen and seen[tg][0] != n:
+                dest_be.delete(tg)
+    except (ApiError, OSError):
+        pass
+
+
+def ep_send_cancel(be, b):
+    job = _jobs.get(b.get("job") or "")
+    if job is None:
+        raise ApiError(404, "Unknown send job")
+    job["cancel"] = True
+    if job["proc"] and job["proc"].poll() is None:
+        job["proc"].kill()
+    return {"ok": True}
 
 
 def _job_partial(job):
@@ -1050,10 +1104,11 @@ def ep_send_status(be, b):
 
 JSON_ENDPOINTS = {
     "auth": ep_auth, "list": ep_list, "md5": ep_md5, "folder-size": ep_folder_size,
+    "disk-free": ep_disk_free,
     "rename": ep_rename, "delete": ep_delete, "clean": ep_clean, "preview": ep_preview,
     "save": ep_save, "zip-list": ep_zip_list, "zip-preview": ep_zip_preview,
     "zip-repair": ep_zip_repair, "zip-all": ep_zip_all, "send": ep_send,
-    "send-status": ep_send_status, "sync": ep_sync, "paste": ep_paste,
+    "send-status": ep_send_status, "send-cancel": ep_send_cancel, "sync": ep_sync, "paste": ep_paste,
 }
 
 
